@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 1: Go Fundamentals & Type System</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0d1117;
+            color: #c9d1d9;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #58a6ff;
+            border-bottom: 2px solid #58a6ff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #79c0ff;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #8b949e;
+        }
+        pre {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Courier New', monospace;
+            color: #79c0ff;
+        }
+        .mapping {
+            background: #1c2128;
+            border-left: 4px solid #f0883e;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .project {
+            background: #1c2128;
+            border-left: 4px solid #3fb950;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .note {
+            background: #1c2128;
+            border-left: 4px solid #d29922;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        a {
+            color: #58a6ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Week 1: Go Fundamentals & Type System</h1>
+    
+    <p><strong>Goal:</strong> Learn Go's core syntax, type system, and error handling patterns. Understand how Go differs from Python.</p>
+
+    <h2>1. Hello World & Package Structure</h2>
+    
+    <div class="mapping">
+        <strong>Python → Go:</strong> Python files/modules → Go packages. Every Go file belongs to a package.
+    </div>
+
+    <p>Create a file called <code>main.go</code>:</p>
+
+    <pre><code>package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, Go!")
+}
+</code></pre>
+
+    <p><strong>Run it:</strong> <code>go run main.go</code></p>
+
+    <p><strong>Explanation:</strong></p>
+    <ul>
+        <li><code>package main</code> - Every executable needs a main package (like Python's <code>if __name__ == "__main__"</code>)</li>
+        <li><code>import "fmt"</code> - Import standard library (like Python's <code>import</code>)</li>
+        <li><code>func main()</code> - Entry point, no <code>def</code> keyword in Go</li>
+    </ul>
+
+    <h2>2. Variables & Types</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> Dynamic typing (<code>x = 5</code>)<br>
+        <strong>Go:</strong> Static typing with type inference
+    </div>
+
+    <pre><code>package main
+
+import "fmt"
+
+func main() {
+    // Explicit type declaration
+    var name string = "Alice"
+    
+    // Type inference (common in Go)
+    age := 30  // := declares and assigns
+    
+    // Multiple variables
+    var x, y int = 10, 20
+    
+    // Zero values (Go initializes variables)
+    var count int      // 0
+    var text string    // ""
+    var isActive bool  // false
+    
+    fmt.Println(name, age, x, y, count, text, isActive)
+}
+</code></pre>
+
+    <p><strong>Key Differences:</strong></p>
+    <ul>
+        <li>Go has <strong>zero values</strong> - no <code>None/null</code> for primitive types</li>
+        <li><code>:=</code> is shorthand for declare + assign (most common)</li>
+        <li>Can't use <code>:=</code> outside functions (use <code>var</code> instead)</li>
+    </ul>
+
+    <h2>3. Basic Types</h2>
+
+    <pre><code>package main
+
+import "fmt"
+
+func main() {
+    // Integers
+    var age int = 30           // Platform-dependent size
+    var count int64 = 1000000  // Explicit 64-bit
+    
+    // Floats
+    price := 99.99  // float64 (default)
+    
+    // Strings
+    message := "Hello"
+    multiline := `This is a
+    multiline string
+    using backticks`
+    
+    // Booleans
+    isValid := true
+    
+    fmt.Printf("age=%d, count=%d, price=%.2f\n", age, count, price)
+    fmt.Println(message, isValid)
+    fmt.Println(multiline)
+}
+</code></pre>
+
+    <h2>4. Slices (Dynamic Arrays)</h2>
+
+    <div class="mapping">
+        <strong>Python lists:</strong> <code>items = [1, 2, 3]</code><br>
+        <strong>Go slices:</strong> <code>items := []int{1, 2, 3}</code>
+    </div>
+
+    <pre><code>package main
+
+import "fmt"
+
+func main() {
+    // Create a slice (like Python list)
+    numbers := []int{1, 2, 3, 4, 5}
+    
+    // Append (like Python's list.append)
+    numbers = append(numbers, 6)
+    
+    // Slicing (like Python)
+    subset := numbers[1:4]  // [2, 3, 4]
+    
+    // Length
+    fmt.Println("Length:", len(numbers))
+    
+    // Iterate (like Python's for i, val in enumerate())
+    for index, value := range numbers {
+        fmt.Printf("Index %d: %d\n", index, value)
+    }
+    
+    fmt.Println(subset)
+}
+</code></pre>
+
+    <p><strong>Important:</strong> <code>append</code> returns a new slice - you must assign it back!</p>
+
+    <h2>5. Maps (Dictionaries)</h2>
+
+    <div class="mapping">
+        <strong>Python dict:</strong> <code>user = {"name": "Alice", "age": 30}</code><br>
+        <strong>Go map:</strong> <code>user := map[string]int{"age": 30}</code>
+    </div>
+
+    <pre><code>package main
+
+import "fmt"
+
+func main() {
+    // Create a map (like Python dict)
+    ages := map[string]int{
+        "Alice": 30,
+        "Bob":   25,
+    }
+    
+    // Add/update
+    ages["Charlie"] = 35
+    
+    // Access
+    aliceAge := ages["Alice"]
+    
+    // Check if key exists (important!)
+    age, exists := ages["David"]
+    if exists {
+        fmt.Println("David's age:", age)
+    } else {
+        fmt.Println("David not found")
+    }
+    
+    // Delete
+    delete(ages, "Bob")
+    
+    // Iterate
+    for name, age := range ages {
+        fmt.Printf("%s is %d years old\n", name, age)
+    }
+}
+</code></pre>
+
+    <h2>6. Structs (Like Classes)</h2>
+
+    <div class="mapping">
+        <strong>Python class:</strong> <code>class User:</code><br>
+        <strong>Go struct:</strong> <code>type User struct</code>
+    </div>
+
+    <pre><code>package main
+
+import "fmt"
+
+// Define a struct (like a Python class without methods)
+type User struct {
+    Name  string
+    Email string
+    Age   int
+}
+
+func main() {
+    // Create struct instances
+    user1 := User{
+        Name:  "Alice",
+        Email: "alice@example.com",
+        Age:   30,
+    }
+    
+    // Shorthand (if you know field order)
+    user2 := User{"Bob", "bob@example.com", 25}
+    
+    // Access fields
+    fmt.Println(user1.Name)
+    
+    // Modify
+    user1.Age = 31
+    
+    // Pointer to struct
+    userPtr := &user1
+    userPtr.Email = "newemail@example.com"
+    
+    fmt.Printf("%+v\n", user1)  // %+v prints field names too
+    fmt.Printf("%+v\n", user2)
+}
+</code></pre>
+
+    <h2>7. Functions</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>def add(a, b):</code><br>
+        <strong>Go:</strong> <code>func add(a int, b int) int</code>
+    </div>
+
+    <pre><code>package main
+
+import "fmt"
+
+// Basic function
+func add(a int, b int) int {
+    return a + b
+}
+
+// Multiple return values (common in Go!)
+func divide(a, b float64) (float64, error) {
+    if b == 0 {
+        return 0, fmt.Errorf("division by zero")
+    }
+    return a / b, nil
+}
+
+// Named return values
+func getUser() (name string, age int) {
+    name = "Alice"
+    age = 30
+    return  // returns name and age automatically
+}
+
+func main() {
+    sum := add(5, 3)
+    fmt.Println("Sum:", sum)
+    
+    // Handle multiple returns
+    result, err := divide(10, 2)
+    if err != nil {
+        fmt.Println("Error:", err)
+    } else {
+        fmt.Println("Result:", result)
+    }
+    
+    name, age := getUser()
+    fmt.Println(name, age)
+}
+</code></pre>
+
+    <h2>8. Error Handling (Critical!)</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>try/except</code><br>
+        <strong>Go:</strong> Explicit error returns with <code>if err != nil</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "fmt"
+    "strconv"
+)
+
+func parseNumber(s string) (int, error) {
+    num, err := strconv.Atoi(s)
+    if err != nil {
+        return 0, fmt.Errorf("failed to parse %q: %w", s, err)
+    }
+    return num, nil
+}
+
+func main() {
+    // Success case
+    num1, err := parseNumber("123")
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+    fmt.Println("Parsed:", num1)
+    
+    // Error case
+    num2, err := parseNumber("abc")
+    if err != nil {
+        fmt.Println("Error:", err)  // Will print the error
+    } else {
+        fmt.Println("Parsed:", num2)
+    }
+}
+</code></pre>
+
+    <p><strong>Key Pattern:</strong> Always check <code>if err != nil</code> immediately after function calls that return errors.</p>
+
+    <h2>9. Pointers</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> Everything is a reference (mostly)<br>
+        <strong>Go:</strong> Explicit pointers with <code>*</code> and <code>&</code>
+    </div>
+
+    <pre><code>package main
+
+import "fmt"
+
+func modifyValue(x int) {
+    x = 100  // Only modifies local copy
+}
+
+func modifyPointer(x *int) {
+    *x = 100  // Modifies original value
+}
+
+func main() {
+    num := 42
+    
+    // Pass by value (like Python with immutable types)
+    modifyValue(num)
+    fmt.Println(num)  // Still 42
+    
+    // Pass by pointer (like Python with mutable types)
+    modifyPointer(&num)
+    fmt.Println(num)  // Now 100
+    
+    // Pointer basics
+    var p *int = &num  // p points to num
+    fmt.Println(*p)    // Dereference to get value
+}
+</code></pre>
+
+    <h2>10. Control Flow</h2>
+
+    <pre><code>package main
+
+import "fmt"
+
+func main() {
+    // If statement (no parentheses needed!)
+    age := 30
+    if age >= 18 {
+        fmt.Println("Adult")
+    } else {
+        fmt.Println("Minor")
+    }
+    
+    // If with initialization
+    if num := 42; num > 40 {
+        fmt.Println("num is large")
+    }
+    
+    // For loop (only loop in Go!)
+    for i := 0; i < 5; i++ {
+        fmt.Println(i)
+    }
+    
+    // While-style loop
+    count := 0
+    for count < 5 {
+        fmt.Println(count)
+        count++
+    }
+    
+    // Infinite loop
+    // for {
+    //     // Use break to exit
+    // }
+    
+    // Switch (cleaner than if/else chains)
+    day := "Monday"
+    switch day {
+    case "Monday":
+        fmt.Println("Start of week")
+    case "Friday":
+        fmt.Println("End of week")
+    default:
+        fmt.Println("Middle of week")
+    }
+}
+</code></pre>
+
+    <div class="note">
+        <strong>Note:</strong> No <code>while</code> keyword in Go - use <code>for</code> instead!
+    </div>
+
+    <h2>11. Methods on Structs</h2>
+
+    <div class="mapping">
+        <strong>Python class methods:</strong> <code>def method(self):</code><br>
+        <strong>Go methods:</strong> <code>func (u User) method()</code>
+    </div>
+
+    <pre><code>package main
+
+import "fmt"
+
+type User struct {
+    Name  string
+    Email string
+    Age   int
+}
+
+// Method with value receiver (read-only)
+func (u User) Greet() string {
+    return fmt.Sprintf("Hello, I'm %s", u.Name)
+}
+
+// Method with pointer receiver (can modify)
+func (u *User) UpdateEmail(newEmail string) {
+    u.Email = newEmail
+}
+
+// Method that returns a value
+func (u User) IsAdult() bool {
+    return u.Age >= 18
+}
+
+func main() {
+    user := User{
+        Name:  "Alice",
+        Email: "alice@example.com",
+        Age:   30,
+    }
+    
+    fmt.Println(user.Greet())
+    fmt.Println("Is adult?", user.IsAdult())
+    
+    user.UpdateEmail("newemail@example.com")
+    fmt.Println(user.Email)
+}
+</code></pre>
+
+    <p><strong>Rule:</strong> Use pointer receivers when you need to modify the struct or if the struct is large.</p>
+
+    <div class="project">
+        <h2>Weekend Mini-Project: CLI File Processor</h2>
+        
+        <p><strong>Build a simple CSV reader that:</strong></p>
+        <ul>
+            <li>Reads a CSV file</li>
+            <li>Parses it into structs</li>
+            <li>Filters/transforms the data</li>
+            <li>Prints results</li>
+        </ul>
+
+        <p><strong>Example: users.csv</strong></p>
+        <pre><code>name,email,age
+Alice,alice@example.com,30
+Bob,bob@example.com,17
+Charlie,charlie@example.com,25</code></pre>
+
+        <p><strong>Solution: csv_reader.go</strong></p>
+        <pre><code>package main
+
+import (
+    "encoding/csv"
+    "fmt"
+    "os"
+    "strconv"
+)
+
+type User struct {
+    Name  string
+    Email string
+    Age   int
+}
+
+func readCSV(filename string) ([]User, error) {
+    file, err := os.Open(filename)
+    if err != nil {
+        return nil, fmt.Errorf("failed to open file: %w", err)
+    }
+    defer file.Close()
+    
+    reader := csv.NewReader(file)
+    records, err := reader.ReadAll()
+    if err != nil {
+        return nil, fmt.Errorf("failed to read CSV: %w", err)
+    }
+    
+    var users []User
+    for i, record := range records {
+        if i == 0 {
+            continue // Skip header
+        }
+        
+        age, err := strconv.Atoi(record[2])
+        if err != nil {
+            fmt.Printf("Warning: invalid age for %s\n", record[0])
+            continue
+        }
+        
+        user := User{
+            Name:  record[0],
+            Email: record[1],
+            Age:   age,
+        }
+        users = append(users, user)
+    }
+    
+    return users, nil
+}
+
+func filterAdults(users []User) []User {
+    var adults []User
+    for _, user := range users {
+        if user.Age >= 18 {
+            adults = append(adults, user)
+        }
+    }
+    return adults
+}
+
+func main() {
+    users, err := readCSV("users.csv")
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+    
+    fmt.Println("All users:")
+    for _, user := range users {
+        fmt.Printf("  %s (%d) - %s\n", user.Name, user.Age, user.Email)
+    }
+    
+    adults := filterAdults(users)
+    fmt.Println("\nAdult users:")
+    for _, user := range adults {
+        fmt.Printf("  %s (%d)\n", user.Name, user.Age)
+    }
+}
+</code></pre>
+
+        <p><strong>Run it:</strong></p>
+        <ol>
+            <li>Create <code>users.csv</code> with sample data</li>
+            <li>Save the code as <code>csv_reader.go</code></li>
+            <li>Run: <code>go run csv_reader.go</code></li>
+        </ol>
+
+        <p><strong>What you learned:</strong></p>
+        <ul>
+            <li>File I/O with <code>os.Open</code></li>
+            <li><code>defer</code> for cleanup (like Python's <code>with</code>)</li>
+            <li>Error handling patterns</li>
+            <li>Working with slices and structs</li>
+            <li>Filtering data (no list comprehensions, but explicit loops)</li>
+        </ul>
+    </div>
+
+    <h2>Key Takeaways</h2>
+    <ul>
+        <li>Go is statically typed but has type inference</li>
+        <li>Error handling is explicit with <code>if err != nil</code></li>
+        <li>Structs + methods replace Python classes</li>
+        <li>Slices are like Python lists, maps are like dicts</li>
+        <li>Pointers are explicit (unlike Python)</li>
+        <li>Multiple return values are idiomatic (especially for errors)</li>
+    </ul>
+
+    <div class="note">
+        <strong>Next Week:</strong> We'll build our first HTTP server and create REST APIs using <code>net/http</code>!
+    </div>
+</body>
+</html>

@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 10: Deployment & Production</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+        h1 { color: #58a6ff; border-bottom: 2px solid #58a6ff; padding-bottom: 10px; }
+        h2 { color: #79c0ff; margin-top: 30px; }
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; }
+        code { font-family: 'Courier New', monospace; color: #79c0ff; }
+        .note { background: #1c2128; border-left: 4px solid #d29922; padding: 15px; margin: 15px 0; }
+        .project { background: #1c2128; border-left: 4px solid #3fb950; padding: 15px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <h1>Week 10: Deployment & Production Readiness</h1>
+    
+    <p><strong>Goal:</strong> Deploy Go applications with Docker, implement health checks, and prepare for production.</p>
+
+    <h2>1. Multi-Stage Dockerfile</h2>
+
+    <pre><code># Dockerfile
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/api
+
+# Runtime stage
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /root/
+
+# Copy binary from builder
+COPY --from=builder /app/main .
+
+# Copy migrations if needed
+COPY --from=builder /app/migrations ./migrations
+
+EXPOSE 8080
+
+CMD ["./main"]
+</code></pre>
+
+    <p><strong>Build and run:</strong></p>
+    <pre><code># Build image
+docker build -t myapp:latest .
+
+# Run container
+docker run -p 8080:8080 \
+    -e DB_HOST=postgres \
+    -e DB_PASSWORD=secret \
+    myapp:latest
+</code></pre>
+
+    <h2>2. Environment Configuration</h2>
+
+    <pre><code>package config
+
+import (
+    "log"
+    "os"
+    "strconv"
+    "time"
+)
+
+type Config struct {
+    Server   ServerConfig
+    Database DatabaseConfig
+    JWT      JWTConfig
+}
+
+type ServerConfig struct {
+    Port            string
+    ReadTimeout     time.Duration
+    WriteTimeout    time.Duration
+    ShutdownTimeout time.Duration
+}
+
+type DatabaseConfig struct {
+    Host            string
+    Port            string
+    User            string
+    Password        string
+    Name            string
+    MaxOpenConns    int
+    MaxIdleConns    int
+    ConnMaxLifetime time.Duration
+}
+
+type JWTConfig struct {
+    Secret     string
+    Expiration time.Duration
+}
+
+func Load() *Config {
+    return &Config{
+        Server: ServerConfig{
+            Port:            getEnv("PORT", "8080"),
+            ReadTimeout:     getDuration("READ_TIMEOUT", 10*time.Second),
+            WriteTimeout:    getDuration("WRITE_TIMEOUT", 10*time.Second),
+            ShutdownTimeout: getDuration("SHUTDOWN_TIMEOUT", 10*time.Second),
+        },
+        Database: DatabaseConfig{
+            Host:            getEnv("DB_HOST", "localhost"),
+            Port:            getEnv("DB_PORT", "5432"),
+            User:            getEnv("DB_USER", "postgres"),
+            Password:        getEnv("DB_PASSWORD", ""),
+            Name:            getEnv("DB_NAME", "mydb"),
+            MaxOpenConns:    getInt("DB_MAX_OPEN_CONNS", 25),
+            MaxIdleConns:    getInt("DB_MAX_IDLE_CONNS", 5),
+            ConnMaxLifetime: getDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
+        },
+        JWT: JWTConfig{
+            Secret:     getEnv("JWT_SECRET", "change-me-in-production"),
+            Expiration: getDuration("JWT_EXPIRATION", 24*time.Hour),
+        },
+    }
+}
+
+func getEnv(key, defaultValue string) string {
+    if value := os.Getenv(key); value != "" {
+        return value
+    }
+    return defaultValue
+}
+
+func getInt(key string, defaultValue int) int {
+    if value := os.Getenv(key); value != "" {
+        if i, err := strconv.Atoi(value); err == nil {
+            return i
+        }
+    }
+    return defaultValue
+}
+
+func getDuration(key string, defaultValue time.Duration) time.Duration {
+    if value := os.Getenv(key); value != "" {
+        if d, err := time.ParseDuration(value); err == nil {
+            return d
+        }
+    }
+    return defaultValue
+}
+</code></pre>
+
+    <h2>3. Health Check Endpoints</h2>
+
+    <pre><code>package handlers
+
+import (
+    "database/sql"
+    "encoding/json"
+    "net/http"
+)
+
+type HealthHandler struct {
+    DB *sql.DB
+}
+
+// GET /health - Simple liveness check
+func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte("OK"))
+}
+
+// GET /ready - Readiness check (checks dependencies)
+func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
+    // Check database connection
+    if err := h.DB.Ping(); err != nil {
+        w.WriteHeader(http.StatusServiceUnavailable)
+        json.NewEncoder(w).Encode(map[string]string{
+            "status": "unhealthy",
+            "error":  "database unavailable",
+        })
+        return
+    }
+    
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]string{
+        "status":   "healthy",
+        "database": "connected",
+    })
+}
+
+// Usage in router
+func setupRoutes(r *chi.Mux, healthHandler *HealthHandler) {
+    r.Get("/health", healthHandler.Health)
+    r.Get("/ready", healthHandler.Ready)
+}
+</code></pre>
+
+    <h2>4. Graceful Shutdown</h2>
+
+    <pre><code>package main
+
+import (
+    "context"
+    "log/slog"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+)
+
+func main() {
+    logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+    
+    // Setup dependencies
+    db, err := database.NewConnection()
+    if err != nil {
+        logger.Error("Database connection failed", "error", err)
+        os.Exit(1)
+    }
+    defer db.Close()
+    
+    // Setup server
+    router := setupRouter(db)
+    
+    server := &http.Server{
+        Addr:         ":8080",
+        Handler:      router,
+        ReadTimeout:  10 * time.Second,
+        WriteTimeout: 10 * time.Second,
+        IdleTimeout:  120 * time.Second,
+    }
+    
+    // Start server in goroutine
+    go func() {
+        logger.Info("Starting server", "port", "8080")
+        if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            logger.Error("Server error", "error", err)
+            os.Exit(1)
+        }
+    }()
+    
+    // Wait for interrupt signal
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    sig := <-quit
+    
+    logger.Info("Received shutdown signal", "signal", sig)
+    
+    // Graceful shutdown with timeout
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    
+    if err := server.Shutdown(ctx); err != nil {
+        logger.Error("Server forced to shutdown", "error", err)
+        os.Exit(1)
+    }
+    
+    logger.Info("Server stopped gracefully")
+}
+</code></pre>
+
+    <h2>5. Structured Logging for Production</h2>
+
+    <pre><code>package middleware
+
+import (
+    "log/slog"
+    "net/http"
+    "time"
+)
+
+func Logger(logger *slog.Logger) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            start := time.Now()
+            
+            // Wrap response writer to capture status code
+            wrapped := &responseWriter{ResponseWriter: w, statusCode: 200}
+            
+            // Generate request ID
+            requestID := generateRequestID()
+            
+            // Add request ID to context
+            ctx := context.WithValue(r.Context(), "request_id", requestID)
+            
+            // Call next handler
+            next.ServeHTTP(wrapped, r.WithContext(ctx))
+            
+            // Log after request
+            duration := time.Since(start)
+            
+            logger.Info("HTTP request",
+                "request_id", requestID,
+                "method", r.Method,
+                "path", r.URL.Path,
+                "status", wrapped.statusCode,
+                "duration_ms", duration.Milliseconds(),
+                "ip", r.RemoteAddr,
+                "user_agent", r.UserAgent(),
+            )
+        })
+    }
+}
+
+type responseWriter struct {
+    http.ResponseWriter
+    statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+    rw.statusCode = code
+    rw.ResponseWriter.WriteHeader(code)
+}
+
+func generateRequestID() string {
+    return fmt.Sprintf("%d", time.Now().UnixNano())
+}
+</code></pre>
+
+    <h2>6. Metrics with Prometheus</h2>
+
+    <p><strong>Install:</strong> <code>go get github.com/prometheus/client_golang/prometheus</code></p>
+
+    <pre><code>package metrics
+
+import (
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+    httpRequestsTotal = promauto.NewCounterVec(
+        prometheus.CounterOpts{
+            Name: "http_requests_total",
+            Help: "Total number of HTTP requests",
+        },
+        []string{"method", "path", "status"},
+    )
+    
+    httpRequestDuration = promauto.NewHistogramVec(
+        prometheus.HistogramOpts{
+            Name:    "http_request_duration_seconds",
+            Help:    "HTTP request duration in seconds",
+            Buckets: prometheus.DefBuckets,
+        },
+        []string{"method", "path"},
+    )
+)
+
+// Middleware
+func PrometheusMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        wrapped := &responseWriter{ResponseWriter: w, statusCode: 200}
+        
+        next.ServeHTTP(wrapped, r)
+        
+        duration := time.Since(start).Seconds()
+        
+        httpRequestsTotal.WithLabelValues(
+            r.Method,
+            r.URL.Path,
+            fmt.Sprintf("%d", wrapped.statusCode),
+        ).Inc()
+        
+        httpRequestDuration.WithLabelValues(
+            r.Method,
+            r.URL.Path,
+        ).Observe(duration)
+    })
+}
+
+// Expose metrics endpoint
+import "github.com/prometheus/client_golang/prometheus/promhttp"
+
+func setupRoutes(r *chi.Mux) {
+    r.Handle("/metrics", promhttp.Handler())
+}
+</code></pre>
+
+    <h2>7. Docker Compose for Local Development</h2>
+
+    <pre><code>version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${DB_USER:-gouser}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-gopass}
+      POSTGRES_DB: ${DB_NAME:-mydb}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gouser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-gouser}
+      DB_PASSWORD: ${DB_PASSWORD:-gopass}
+      DB_NAME: ${DB_NAME:-mydb}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+volumes:
+  postgres_data:
+  prometheus_data:
+</code></pre>
+
+    <p><strong>prometheus.yml:</strong></p>
+    <pre><code>global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'myapp'
+    static_configs:
+      - targets: ['app:8080']
+</code></pre>
+
+    <h2>8. GitHub Actions CI/CD</h2>
+
+    <p><strong>.github/workflows/ci.yml:</strong></p>
+    <pre><code>name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Run tests
+      env:
+        DB_HOST: localhost
+        DB_PASSWORD: testpass
+      run: |
+        go test -v -race -coverprofile=coverage.out ./...
+        go tool cover -html=coverage.out -o coverage.html
+    
+    - name: Build
+      run: go build -v ./cmd/api
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Build Docker image
+      run: docker build -t myapp:${{ github.sha }} .
+    
+    - name: Push to registry
+      run: |
+        echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+        docker push myapp:${{ github.sha }}
+</code></pre>
+
+    <h2>9. .env File for Local Development</h2>
+
+    <pre><code># .env
+PORT=8080
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=gouser
+DB_PASSWORD=gopass
+DB_NAME=mydb
+JWT_SECRET=dev-secret-change-in-prod
+LOG_LEVEL=debug
+</code></pre>
+
+    <p><strong>Load with godotenv:</strong></p>
+    <pre><code>package main
+
+import (
+    "github.com/joho/godotenv"
+)
+
+func main() {
+    // Load .env in development
+    if os.Getenv("ENV") != "production" {
+        godotenv.Load()
+    }
+    
+    // Rest of your code
+}
+</code></pre>
+
+    <div class="project">
+        <h2>Weekend Project: Deploy Your API</h2>
+        
+        <p><strong>Tasks:</strong></p>
+        <ul>
+            <li>Create multi-stage Dockerfile</li>
+            <li>Add health and readiness endpoints</li>
+            <li>Implement graceful shutdown</li>
+            <li>Add Prometheus metrics</li>
+            <li>Setup Docker Compose for local dev</li>
+            <li>Create GitHub Actions workflow</li>
+            <li>Deploy to cloud (Fly.io, Railway, or AWS)</li>
+        </ul>
+
+        <p><strong>Deploy to Fly.io (free tier):</strong></p>
+        <pre><code># Install flyctl
+curl -L https://fly.io/install.sh | sh
+
+# Login
+flyctl auth login
+
+# Launch app
+flyctl launch
+
+# Deploy
+flyctl deploy
+
+# Check logs
+flyctl logs
+</code></pre>
+    </div>
+
+    <h2>Production Checklist</h2>
+    <ul>
+        <li>✅ Environment-based configuration</li>
+        <li>✅ Structured JSON logging</li>
+        <li>✅ Health and readiness endpoints</li>
+        <li>✅ Graceful shutdown</li>
+        <li>✅ Request timeouts configured</li>
+        <li>✅ Database connection pooling</li>
+        <li>✅ Metrics exposed (Prometheus)</li>
+        <li>✅ Error handling and logging</li>
+        <li>✅ HTTPS/TLS enabled</li>
+        <li>✅ Rate limiting</li>
+        <li>✅ CORS configured</li>
+        <li>✅ CI/CD pipeline</li>
+        <li>✅ Comprehensive tests</li>
+    </ul>
+
+    <div class="note">
+        <strong>Next Week:</strong> Advanced patterns and interview preparation!
+    </div>
+</body>
+</html>

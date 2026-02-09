@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 7: Testing & Benchmarking</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+        h1 { color: #58a6ff; border-bottom: 2px solid #58a6ff; padding-bottom: 10px; }
+        h2 { color: #79c0ff; margin-top: 30px; }
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; }
+        code { font-family: 'Courier New', monospace; color: #79c0ff; }
+        .mapping { background: #1c2128; border-left: 4px solid #f0883e; padding: 15px; margin: 15px 0; }
+        .project { background: #1c2128; border-left: 4px solid #3fb950; padding: 15px; margin: 15px 0; }
+        .note { background: #1c2128; border-left: 4px solid #d29922; padding: 15px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <h1>Week 7: Testing & Benchmarking</h1>
+    
+    <p><strong>Goal:</strong> Master Go's testing framework, write table-driven tests, and benchmark code.</p>
+
+    <h2>1. Basic Unit Test</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>def test_function():</code> with pytest<br>
+        <strong>Go:</strong> <code>func TestFunction(t *testing.T)</code>
+    </div>
+
+    <p><strong>math.go:</strong></p>
+    <pre><code>package math
+
+func Add(a, b int) int {
+    return a + b
+}
+
+func Multiply(a, b int) int {
+    return a * b
+}
+</code></pre>
+
+    <p><strong>math_test.go:</strong></p>
+    <pre><code>package math
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+    result := Add(2, 3)
+    expected := 5
+    
+    if result != expected {
+        t.Errorf("Add(2, 3) = %d; expected %d", result, expected)
+    }
+}
+
+func TestMultiply(t *testing.T) {
+    result := Multiply(3, 4)
+    expected := 12
+    
+    if result != expected {
+        t.Errorf("Multiply(3, 4) = %d; expected %d", result, expected)
+    }
+}
+</code></pre>
+
+    <p><strong>Run tests:</strong> <code>go test</code> or <code>go test -v</code> (verbose)</p>
+
+    <h2>2. Table-Driven Tests (Idiomatic Go)</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>@pytest.mark.parametrize(...)</code><br>
+        <strong>Go:</strong> Table-driven tests with loops
+    </div>
+
+    <pre><code>package math
+
+import "testing"
+
+func TestAdd(t *testing.T) {
+    // Define test cases
+    tests := []struct {
+        name     string
+        a, b     int
+        expected int
+    }{
+        {"positive numbers", 2, 3, 5},
+        {"negative numbers", -1, -1, -2},
+        {"zero", 0, 5, 5},
+        {"large numbers", 1000, 2000, 3000},
+    }
+    
+    // Run all test cases
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            result := Add(tt.a, tt.b)
+            if result != tt.expected {
+                t.Errorf("Add(%d, %d) = %d; expected %d", 
+                    tt.a, tt.b, result, tt.expected)
+            }
+        })
+    }
+}
+</code></pre>
+
+    <p><strong>Output:</strong></p>
+    <pre><code>$ go test -v
+=== RUN   TestAdd
+=== RUN   TestAdd/positive_numbers
+=== RUN   TestAdd/negative_numbers
+=== RUN   TestAdd/zero
+=== RUN   TestAdd/large_numbers
+--- PASS: TestAdd (0.00s)
+</code></pre>
+
+    <h2>3. Testing HTTP Handlers</h2>
+
+    <p><strong>handlers.go:</strong></p>
+    <pre><code>package main
+
+import (
+    "encoding/json"
+    "net/http"
+)
+
+type Response struct {
+    Message string `json:"message"`
+}
+
+func HelloHandler(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+    
+    resp := Response{Message: "Hello, World!"}
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(resp)
+}
+</code></pre>
+
+    <p><strong>handlers_test.go:</strong></p>
+    <pre><code>package main
+
+import (
+    "encoding/json"
+    "net/http"
+    "net/http/httptest"
+    "testing"
+)
+
+func TestHelloHandler(t *testing.T) {
+    // Create request
+    req := httptest.NewRequest(http.MethodGet, "/hello", nil)
+    
+    // Create response recorder
+    rr := httptest.NewRecorder()
+    
+    // Call handler
+    HelloHandler(rr, req)
+    
+    // Check status code
+    if status := rr.Code; status != http.StatusOK {
+        t.Errorf("handler returned wrong status: got %v want %v", 
+            status, http.StatusOK)
+    }
+    
+    // Check response body
+    var resp Response
+    if err := json.NewDecoder(rr.Body).Decode(&resp); err != nil {
+        t.Fatalf("Could not decode response: %v", err)
+    }
+    
+    expected := "Hello, World!"
+    if resp.Message != expected {
+        t.Errorf("handler returned unexpected message: got %v want %v",
+            resp.Message, expected)
+    }
+}
+
+func TestHelloHandlerWrongMethod(t *testing.T) {
+    req := httptest.NewRequest(http.MethodPost, "/hello", nil)
+    rr := httptest.NewRecorder()
+    
+    HelloHandler(rr, req)
+    
+    if status := rr.Code; status != http.StatusMethodNotAllowed {
+        t.Errorf("handler returned wrong status: got %v want %v",
+            status, http.StatusMethodNotAllowed)
+    }
+}
+</code></pre>
+
+    <h2>4. Testing with Mocks (Interfaces)</h2>
+
+    <p><strong>users.go:</strong></p>
+    <pre><code>package users
+
+type User struct {
+    ID    int
+    Name  string
+    Email string
+}
+
+// Interface for database operations
+type UserStore interface {
+    GetUser(id int) (*User, error)
+}
+
+type UserService struct {
+    Store UserStore
+}
+
+func (s *UserService) GetUserName(id int) (string, error) {
+    user, err := s.Store.GetUser(id)
+    if err != nil {
+        return "", err
+    }
+    return user.Name, nil
+}
+</code></pre>
+
+    <p><strong>users_test.go:</strong></p>
+    <pre><code>package users
+
+import (
+    "errors"
+    "testing"
+)
+
+// Mock implementation
+type MockUserStore struct {
+    users map[int]*User
+}
+
+func (m *MockUserStore) GetUser(id int) (*User, error) {
+    user, exists := m.users[id]
+    if !exists {
+        return nil, errors.New("user not found")
+    }
+    return user, nil
+}
+
+func TestGetUserName(t *testing.T) {
+    // Setup mock
+    mockStore := &MockUserStore{
+        users: map[int]*User{
+            1: {ID: 1, Name: "Alice", Email: "alice@example.com"},
+        },
+    }
+    
+    service := &UserService{Store: mockStore}
+    
+    // Test success case
+    name, err := service.GetUserName(1)
+    if err != nil {
+        t.Fatalf("unexpected error: %v", err)
+    }
+    if name != "Alice" {
+        t.Errorf("got %s; expected Alice", name)
+    }
+    
+    // Test not found case
+    _, err = service.GetUserName(999)
+    if err == nil {
+        t.Error("expected error for non-existent user")
+    }
+}
+</code></pre>
+
+    <h2>5. Test Coverage</h2>
+
+    <pre><code># Run tests with coverage
+go test -cover
+
+# Generate coverage report
+go test -coverprofile=coverage.out
+
+# View coverage in browser
+go tool cover -html=coverage.out
+</code></pre>
+
+    <h2>6. Benchmarking</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>timeit</code> module or custom timing<br>
+        <strong>Go:</strong> <code>func BenchmarkXxx(b *testing.B)</code>
+    </div>
+
+    <p><strong>math_test.go:</strong></p>
+    <pre><code>package math
+
+import "testing"
+
+func BenchmarkAdd(b *testing.B) {
+    for i := 0; i < b.N; i++ {
+        Add(2, 3)
+    }
+}
+
+func BenchmarkMultiply(b *testing.B) {
+    for i := 0; i < b.N; i++ {
+        Multiply(3, 4)
+    }
+}
+</code></pre>
+
+    <p><strong>Run benchmarks:</strong></p>
+    <pre><code>$ go test -bench=.
+
+BenchmarkAdd-8          1000000000         0.25 ns/op
+BenchmarkMultiply-8     1000000000         0.25 ns/op
+</code></pre>
+
+    <h2>7. Benchmark with Memory Allocation Tracking</h2>
+
+    <pre><code>package main
+
+import (
+    "strings"
+    "testing"
+)
+
+func concatWithPlus(strs []string) string {
+    result := ""
+    for _, s := range strs {
+        result += s
+    }
+    return result
+}
+
+func concatWithBuilder(strs []string) string {
+    var builder strings.Builder
+    for _, s := range strs {
+        builder.WriteString(s)
+    }
+    return builder.String()
+}
+
+func BenchmarkConcatPlus(b *testing.B) {
+    strs := []string{"hello", "world", "foo", "bar"}
+    
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        concatWithPlus(strs)
+    }
+}
+
+func BenchmarkConcatBuilder(b *testing.B) {
+    strs := []string{"hello", "world", "foo", "bar"}
+    
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        concatWithBuilder(strs)
+    }
+}
+</code></pre>
+
+    <p><strong>Run with memory stats:</strong></p>
+    <pre><code>$ go test -bench=. -benchmem
+
+BenchmarkConcatPlus-8       2000000     800 ns/op     64 B/op    4 allocs/op
+BenchmarkConcatBuilder-8    10000000    120 ns/op     24 B/op    1 allocs/op
+</code></pre>
+
+    <h2>8. Integration Tests with Database</h2>
+
+    <pre><code>package users
+
+import (
+    "database/sql"
+    "testing"
+    
+    _ "github.com/lib/pq"
+)
+
+func setupTestDB(t *testing.T) *sql.DB {
+    connStr := "host=localhost port=5432 user=test password=test dbname=testdb sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        t.Fatalf("Failed to connect to DB: %v", err)
+    }
+    
+    // Create table
+    _, err = db.Exec(`
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100),
+            email VARCHAR(255)
+        )
+    `)
+    if err != nil {
+        t.Fatalf("Failed to create table: %v", err)
+    }
+    
+    return db
+}
+
+func teardownTestDB(t *testing.T, db *sql.DB) {
+    _, err := db.Exec("DROP TABLE IF EXISTS users")
+    if err != nil {
+        t.Errorf("Failed to drop table: %v", err)
+    }
+    db.Close()
+}
+
+func TestCreateUser(t *testing.T) {
+    db := setupTestDB(t)
+    defer teardownTestDB(t, db)
+    
+    // Test user creation
+    query := `INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id`
+    var id int
+    err := db.QueryRow(query, "Alice", "alice@example.com").Scan(&id)
+    
+    if err != nil {
+        t.Fatalf("Failed to insert user: %v", err)
+    }
+    
+    if id == 0 {
+        t.Error("Expected non-zero ID")
+    }
+}
+</code></pre>
+
+    <h2>9. Test Helpers and Setup</h2>
+
+    <pre><code>package main
+
+import "testing"
+
+func setupTest(t *testing.T) func() {
+    t.Log("Setup test")
+    
+    // Return teardown function
+    return func() {
+        t.Log("Teardown test")
+    }
+}
+
+func TestSomething(t *testing.T) {
+    teardown := setupTest(t)
+    defer teardown()
+    
+    // Your test code here
+    t.Log("Running test")
+}
+</code></pre>
+
+    <h2>10. Running Specific Tests</h2>
+
+    <pre><code># Run all tests
+go test
+
+# Run specific test
+go test -run TestAdd
+
+# Run tests matching pattern
+go test -run TestAdd.*
+
+# Verbose output
+go test -v
+
+# Coverage
+go test -cover
+
+# Race detection
+go test -race
+
+# All together
+go test -v -race -cover
+</code></pre>
+
+    <div class="project">
+        <h2>Weekend Mini-Project: Complete Test Suite</h2>
+        
+        <p><strong>Add comprehensive tests to your blog API:</strong></p>
+        <ul>
+            <li>Unit tests for all business logic functions (table-driven)</li>
+            <li>HTTP handler tests using <code>httptest</code></li>
+            <li>Database integration tests (setup/teardown)</li>
+            <li>Mock tests for external dependencies</li>
+            <li>Benchmark critical paths (user lookup, post creation)</li>
+            <li>Test error cases (validation, not found, etc.)</li>
+        </ul>
+
+        <p><strong>Example test structure:</strong></p>
+        <pre><code>myapp/
+├── handlers.go
+├── handlers_test.go
+├── users.go
+├── users_test.go
+├── posts.go
+├── posts_test.go
+└── database.go
+    └── database_test.go
+</code></pre>
+
+        <p><strong>Goals:</strong></p>
+        <ul>
+            <li>Achieve >80% test coverage</li>
+            <li>All tests pass with <code>go test -race</code></li>
+            <li>Benchmark shows acceptable performance</li>
+        </ul>
+    </div>
+
+    <h2>Key Takeaways</h2>
+    <ul>
+        <li>Test files end with <code>_test.go</code></li>
+        <li>Test functions start with <code>Test</code> and take <code>*testing.T</code></li>
+        <li>Table-driven tests are idiomatic in Go</li>
+        <li>Use <code>httptest</code> for testing HTTP handlers</li>
+        <li>Use interfaces for mocking dependencies</li>
+        <li>Benchmarks start with <code>Benchmark</code> and take <code>*testing.B</code></li>
+        <li>Use <code>b.ResetTimer()</code> to exclude setup from benchmarks</li>
+        <li>Run tests with <code>-race</code> flag to detect data races</li>
+    </ul>
+
+    <div class="note">
+        <strong>Next Week:</strong> Build a complete production-ready API project!
+    </div>
+</body>
+</html>

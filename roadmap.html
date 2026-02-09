@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>12-Week Golang Backend Engineer Roadmap</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #e4e4e7;
+            background: #09090b;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #00ADD8 0%, #5DC9E2 100%);
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 6px rgba(0, 173, 216, 0.1);
+        }
+        
+        h1 {
+            color: #09090b;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            color: #18181b;
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+        
+        .meta {
+            background: #18181b;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #00ADD8;
+        }
+        
+        .meta h2 {
+            color: #00ADD8;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .meta-item {
+            background: #27272a;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        
+        .meta-item strong {
+            color: #5DC9E2;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .week-block {
+            background: #18181b;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #27272a;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .week-block:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 173, 216, 0.15);
+        }
+        
+        .week-header {
+            background: linear-gradient(135deg, #27272a 0%, #3f3f46 100%);
+            padding: 20px 30px;
+            border-bottom: 2px solid #00ADD8;
+        }
+        
+        .week-title {
+            color: #00ADD8;
+            font-size: 1.8em;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .week-focus {
+            color: #a1a1aa;
+            font-size: 1.1em;
+            font-style: italic;
+        }
+        
+        .week-content {
+            padding: 30px;
+        }
+        
+        .section {
+            margin-bottom: 25px;
+        }
+        
+        .section-title {
+            color: #5DC9E2;
+            font-size: 1.2em;
+            margin-bottom: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title::before {
+            content: "▸";
+            margin-right: 8px;
+            color: #00ADD8;
+        }
+        
+        ul {
+            list-style: none;
+            padding-left: 20px;
+        }
+        
+        li {
+            margin-bottom: 10px;
+            padding-left: 20px;
+            position: relative;
+            color: #d4d4d8;
+        }
+        
+        li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #00ADD8;
+            font-weight: bold;
+        }
+        
+        .mapping-box {
+            background: #27272a;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border-left: 3px solid #5DC9E2;
+        }
+        
+        .mapping-box strong {
+            color: #fbbf24;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .project-box {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            padding: 20px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border: 1px solid #3b82f6;
+        }
+        
+        .project-box strong {
+            color: #60a5fa;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .avoid-box {
+            background: #422006;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border-left: 3px solid #f59e0b;
+        }
+        
+        .avoid-box strong {
+            color: #fbbf24;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .avoid-box ul li::before {
+            content: "✗";
+            color: #f59e0b;
+        }
+        
+        .final-outcome {
+            background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+            padding: 40px;
+            border-radius: 8px;
+            margin-top: 40px;
+            border: 2px solid #10b981;
+        }
+        
+        .final-outcome h2 {
+            color: #6ee7b7;
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+        
+        .final-outcome ul {
+            padding-left: 0;
+        }
+        
+        .final-outcome li {
+            color: #d1fae5;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+        
+        .final-outcome li::before {
+            content: "✓";
+            color: #6ee7b7;
+            font-size: 1.3em;
+        }
+        
+        code {
+            background: #27272a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #5DC9E2;
+            font-size: 0.9em;
+        }
+        
+        .timeline {
+            background: #18181b;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .timeline strong {
+            color: #00ADD8;
+            font-size: 1.3em;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            header {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+            
+            .week-content {
+                padding: 20px;
+            }
+            
+            .meta-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>12-Week Golang Backend Roadmap</h1>
+            <div class="subtitle">From Python/TypeScript Backend Engineer to Production-Ready Go Developer</div>
+        </header>
+        
+        <div class="meta">
+            <h2>Your Profile & Constraints</h2>
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <strong>Experience</strong>
+                    4+ years backend (TypeScript, Python, Flask, FastAPI)
+                </div>
+                <div class="meta-item">
+                    <strong>Domain</strong>
+                    Geospatial systems, 3D GIS, RESTful APIs
+                </div>
+                <div class="meta-item">
+                    <strong>Time Commitment</strong>
+                    ~1 hour weekdays, projects on weekends
+                </div>
+                <div class="meta-item">
+                    <strong>Goal</strong>
+                    Employable Go backend engineer in 3-4 months
+                </div>
+            </div>
+        </div>
+        
+        <div class="timeline">
+            <strong>Timeline: 12 Weeks | Total ~100-120 hours | Feb 2026 - May 2026</strong>
+        </div>
+
+        <!-- Week 1-2 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 1-2</div>
+                <div class="week-focus">Go Fundamentals & Type System (Skip the Basics)</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li>Go's type system: interfaces (implicit), structs, pointers vs values</li>
+                        <li>Error handling pattern (<code>if err != nil</code>) vs Python exceptions</li>
+                        <li>Package management: go modules, import paths</li>
+                        <li>Slices vs arrays (critical difference from Python lists)</li>
+                        <li>defer, panic, recover (not try/catch)</li>
+                        <li>Zero values and nil semantics</li>
+                    </ul>
+                </div>
+                
+                <div class="mapping-box">
+                    <strong>Python → Go Mappings</strong>
+                    <ul>
+                        <li><code>dict</code> → <code>map[string]interface{}</code> or structs (prefer structs)</li>
+                        <li><code>list</code> → <code>[]T</code> (slices, not arrays)</li>
+                        <li><code>Class</code> → <code>struct</code> + methods with receivers</li>
+                        <li><code>try/except</code> → explicit <code>if err != nil</code> checks</li>
+                        <li><code>None</code> → <code>nil</code> (but only for pointers, interfaces, slices, maps, channels, functions)</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Go's type system is stricter—misunderstanding pointers/values causes production bugs</li>
+                        <li>Error handling is explicit—every interview asks about this pattern</li>
+                        <li>Interfaces are implicit—different from TypeScript/Python, enables powerful patterns</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Project: CLI Tool</strong>
+                    Build a file processor CLI (similar to Python's argparse pattern):
+                    <ul>
+                        <li>Parse command-line flags using <code>flag</code> package</li>
+                        <li>Read CSV/JSON files</li>
+                        <li>Transform data (map/filter using loops, Go has no list comprehensions)</li>
+                        <li>Write output with proper error handling</li>
+                        <li>Use structs to model data (not dictionaries)</li>
+                    </ul>
+                    This teaches: file I/O, error handling, structs, slices
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>Go GUI frameworks (you're backend-focused)</li>
+                        <li>Cgo and C interop (irrelevant for most jobs)</li>
+                        <li>Low-level memory management details (GC handles it)</li>
+                        <li>Writing "Hello World" tutorials (you know programming)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 3 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 3</div>
+                <div class="week-focus">HTTP Servers & Routing (Flask → Go)</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li><code>net/http</code> standard library—no framework needed initially</li>
+                        <li>Handler functions: <code>func(w http.ResponseWriter, r *http.Request)</code></li>
+                        <li>Routing with <code>http.ServeMux</code> (stdlib) vs <code>chi</code> or <code>gorilla/mux</code></li>
+                        <li>Request parsing: JSON, query params, path params</li>
+                        <li>Response writing: JSON encoding, status codes</li>
+                        <li>Request context (<code>r.Context()</code>)</li>
+                    </ul>
+                </div>
+                
+                <div class="mapping-box">
+                    <strong>Flask/FastAPI → Go Mappings</strong>
+                    <ul>
+                        <li><code>@app.route("/users", methods=["GET"])</code> → <code>http.HandleFunc("/users", getUsersHandler)</code></li>
+                        <li><code>request.json</code> → <code>json.NewDecoder(r.Body).Decode(&data)</code></li>
+                        <li><code>jsonify({"key": "value"})</code> → <code>json.NewEncoder(w).Encode(data)</code></li>
+                        <li><code>abort(404)</code> → <code>http.Error(w, "Not Found", http.StatusNotFound)</code></li>
+                        <li>Flask blueprints → Go's sub-routers (with chi/mux)</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Go's stdlib is production-ready—many companies use it with minimal dependencies</li>
+                        <li>Understanding handlers and ResponseWriter is critical for all Go web work</li>
+                        <li>Context propagation is essential for timeouts, cancellation (used everywhere)</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Project: REST API (Users CRUD)</strong>
+                    Build a simple user management API:
+                    <ul>
+                        <li>GET /users (list), GET /users/:id (retrieve)</li>
+                        <li>POST /users (create), PUT /users/:id (update), DELETE /users/:id</li>
+                        <li>Use in-memory storage (map) for now</li>
+                        <li>Proper HTTP status codes (200, 201, 404, 400, 500)</li>
+                        <li>JSON request/response bodies</li>
+                        <li>Use <code>chi</code> router for cleaner routing</li>
+                    </ul>
+                    This teaches: HTTP fundamentals, routing, JSON handling
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>Heavy frameworks like Beego or Revel (not used in modern Go shops)</li>
+                        <li>Rolling your own router (use stdlib or chi/mux)</li>
+                        <li>GraphQL initially (focus on REST first)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 4 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 4</div>
+                <div class="week-focus">Database Access (PostgreSQL & SQL Patterns)</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li><code>database/sql</code> package + <code>pgx</code> driver (PostgreSQL)</li>
+                        <li>Connection pooling (<code>sql.DB</code> is already a pool!)</li>
+                        <li>Prepared statements and query parameterization ($1, $2 syntax)</li>
+                        <li>Scanning rows into structs</li>
+                        <li>Transactions: <code>tx.Begin()</code>, <code>Commit()</code>, <code>Rollback()</code></li>
+                        <li>NULL handling: <code>sql.NullString</code>, <code>sql.NullInt64</code> or pointers</li>
+                        <li><code>sqlx</code> for struct scanning (quality of life, widely used)</li>
+                    </ul>
+                </div>
+                
+                <div class="mapping-box">
+                    <strong>Python (SQLAlchemy/Flask-SQLAlchemy) → Go</strong>
+                    <ul>
+                        <li>ORM models → raw SQL with struct scanning (Go culture prefers explicit SQL)</li>
+                        <li><code>db.session.query(User).filter_by(id=1).first()</code> → <code>db.QueryRow("SELECT * FROM users WHERE id = $1", id).Scan(&user)</code></li>
+                        <li><code>db.session.add(user); db.session.commit()</code> → <code>db.Exec("INSERT INTO users ...")</code> in a transaction</li>
+                        <li>Flask-Migrate → <code>golang-migrate/migrate</code> or <code>goose</code></li>
+                        <li>Relationship loading → manual joins or separate queries (no lazy loading)</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Go backend jobs expect you to write SQL, not rely on ORMs (GORM exists but less common)</li>
+                        <li>Understanding <code>sql.DB</code> pooling prevents connection leak issues</li>
+                        <li>Transaction handling is critical for data consistency (same as Python, but more explicit)</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Project: Persistent REST API</strong>
+                    Extend Week 3's API to use PostgreSQL:
+                    <ul>
+                        <li>Set up PostgreSQL locally (Docker is fine)</li>
+                        <li>Create users table with migrations using <code>golang-migrate</code></li>
+                        <li>Replace in-memory storage with SQL queries</li>
+                        <li>Implement proper transactions for updates</li>
+                        <li>Add query filtering (e.g., GET /users?email=test@example.com)</li>
+                        <li>Handle connection errors and context timeouts</li>
+                    </ul>
+                    This teaches: Real database integration, transactions, migrations
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>GORM initially (learn raw SQL first, add GORM later if needed)</li>
+                        <li>NoSQL databases at this stage (focus PostgreSQL first)</li>
+                        <li>Complex ORM patterns (Go culture prefers explicit SQL)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 5 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 5</div>
+                <div class="week-focus">Context, Error Handling & Logging</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li><code>context.Context</code>: timeouts, cancellation, deadlines</li>
+                        <li>Context propagation through call chains (critical pattern)</li>
+                        <li>Custom error types and error wrapping (<code>fmt.Errorf("%w", err)</code>)</li>
+                        <li><code>errors.Is()</code> and <code>errors.As()</code> for error inspection</li>
+                        <li>Structured logging: <code>slog</code> (Go 1.21+, stdlib) or <code>zap</code>/<code>zerolog</code></li>
+                        <li>Log levels, context fields, performance considerations</li>
+                    </ul>
+                </div>
+                
+                <div class="mapping-box">
+                    <strong>Python → Go Error/Logging Patterns</strong>
+                    <ul>
+                        <li><code>try/except Exception as e</code> → <code>if err != nil { ... }</code> then inspect with <code>errors.Is/As</code></li>
+                        <li><code>raise CustomError("msg")</code> → return custom error type implementing <code>error</code> interface</li>
+                        <li>Python logging module → <code>slog</code> (structured, contextual)</li>
+                        <li>Flask <code>request.timeout</code> → <code>context.WithTimeout(ctx, duration)</code></li>
+                        <li>Exception chaining → error wrapping with <code>%w</code></li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Context is Go's fundamental cancellation mechanism—used in every production service</li>
+                        <li>Proper error handling distinguishes junior from senior Go engineers</li>
+                        <li>Structured logging is standard in production (JSON logs for log aggregation)</li>
+                        <li>Interviews ask about context usage and error wrapping patterns</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Task: Refactor API with Context & Logging</strong>
+                    Improve your Week 4 API:
+                    <ul>
+                        <li>Add request timeouts using <code>context.WithTimeout</code></li>
+                        <li>Pass context through handlers → DB queries</li>
+                        <li>Create custom error types (e.g., <code>NotFoundError</code>, <code>ValidationError</code>)</li>
+                        <li>Wrap errors with context: <code>fmt.Errorf("failed to fetch user: %w", err)</code></li>
+                        <li>Add structured logging with <code>slog</code> (request ID, user ID, duration)</li>
+                        <li>Implement graceful shutdown (context cancellation)</li>
+                    </ul>
+                    This teaches: Production-quality error handling and observability
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>Panic-based error handling (only use panic for true unrecoverable errors)</li>
+                        <li>Over-complicated error hierarchies (keep it simple)</li>
+                        <li>Non-structured logging (plain fmt.Println is not production-ready)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 6 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 6</div>
+                <div class="week-focus">Middleware & Authentication (JWT, Sessions)</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li>Middleware pattern in Go: <code>func(http.Handler) http.Handler</code></li>
+                        <li>Chaining middleware (logging, auth, CORS, rate limiting)</li>
+                        <li>JWT: signing, verification, claims extraction</li>
+                        <li>Use <code>golang-jwt/jwt</code> library (most popular)</li>
+                        <li>Request context for storing user info (<code>context.WithValue</code>)</li>
+                        <li>Password hashing with <code>bcrypt</code></li>
+                        <li>CORS headers and preflight requests</li>
+                    </ul>
+                </div>
+                
+                <div class="mapping-box">
+                    <strong>Flask/FastAPI → Go Auth Patterns</strong>
+                    <ul>
+                        <li>Flask <code>@login_required</code> decorator → Go middleware wrapping handlers</li>
+                        <li>Flask-JWT-Extended → <code>golang-jwt/jwt</code> for JWT signing/verification</li>
+                        <li><code>request.current_user</code> → Extract from context: <code>user := r.Context().Value("user")</code></li>
+                        <li>Flask-CORS → Custom middleware or <code>rs/cors</code> package</li>
+                        <li>Flask-Bcrypt → <code>golang.org/x/crypto/bcrypt</code></li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Middleware is the standard pattern for cross-cutting concerns (every Go API uses it)</li>
+                        <li>JWT is ubiquitous for stateless auth in microservices</li>
+                        <li>Proper auth implementation is security-critical—interviewers test this heavily</li>
+                        <li>Context for request-scoped data is a core Go idiom</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Project: Secure API with Auth</strong>
+                    Add authentication to your API:
+                    <ul>
+                        <li>POST /auth/register (hash password with bcrypt, store user)</li>
+                        <li>POST /auth/login (verify password, return JWT)</li>
+                        <li>Create auth middleware to verify JWT on protected routes</li>
+                        <li>Extract user ID from JWT claims, store in request context</li>
+                        <li>Add logging middleware (log request method, path, duration)</li>
+                        <li>Add CORS middleware for frontend integration</li>
+                        <li>Protect existing endpoints (GET/POST/PUT/DELETE users)</li>
+                    </ul>
+                    This teaches: Production auth patterns, middleware chaining
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>OAuth2 flows initially (focus JWT first, add OAuth later)</li>
+                        <li>Session-based auth (JWT is more common for APIs)</li>
+                        <li>Exotic crypto libraries (stick to stdlib + bcrypt)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 7 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 7</div>
+                <div class="week-focus">Concurrency (Goroutines, Channels, Patterns)</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li>Goroutines: <code>go func()</code> vs Python threads/asyncio</li>
+                        <li>Channels: producer-consumer, buffered vs unbuffered</li>
+                        <li><code>select</code> statement for multiplexing channels</li>
+                        <li>Synchronization: <code>sync.WaitGroup</code>, <code>sync.Mutex</code></li>
+                        <li>Common patterns: fan-out/fan-in, worker pools, pipeline</li>
+                        <li>Context for canceling goroutines</li>
+                        <li>Race detection: <code>go test -race</code></li>
+                    </ul>
+                </div>
+                
+                <div class="mapping-box">
+                    <strong>Python Async/Threading → Go Concurrency</strong>
+                    <ul>
+                        <li><code>async def</code> + <code>await</code> → <code>go func()</code> (no await needed, truly concurrent)</li>
+                        <li><code>asyncio.Queue</code> → Go channels (<code>chan T</code>)</li>
+                        <li><code>threading.Lock()</code> → <code>sync.Mutex</code></li>
+                        <li><code>concurrent.futures.ThreadPoolExecutor</code> → Worker pool with goroutines</li>
+                        <li>Python asyncio event loop → Go runtime scheduler (automatic)</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Concurrency is Go's killer feature—every interview asks about goroutines/channels</li>
+                        <li>Most backend tasks benefit from concurrency (API calls, DB queries, batch processing)</li>
+                        <li>Understanding channels/select is essential for building production systems</li>
+                        <li>Race conditions are common bugs—learning to detect/prevent is critical</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Project: Concurrent Data Processor</strong>
+                    Build a concurrent batch processor:
+                    <ul>
+                        <li>Read input from channel, process in parallel with worker pool</li>
+                        <li>Fetch data from external API concurrently (simulate with httpbin.org)</li>
+                        <li>Use <code>sync.WaitGroup</code> to wait for all workers</li>
+                        <li>Implement graceful shutdown with context cancellation</li>
+                        <li>Add rate limiting (e.g., max 10 requests/second) using channels</li>
+                        <li>Handle errors from workers and aggregate results</li>
+                        <li>Run with <code>-race</code> flag to detect data races</li>
+                    </ul>
+                    This teaches: Real-world concurrency patterns, worker pools
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>Over-complicating with too many channels (keep it simple)</li>
+                        <li>Shared memory with mutexes everywhere (prefer channels for communication)</li>
+                        <li>Advanced sync primitives (<code>sync.Cond</code>, etc.) unless needed</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 8 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 8</div>
+                <div class="week-focus">Testing & Benchmarking</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li>Table-driven tests (idiomatic Go testing pattern)</li>
+                        <li><code>testing</code> package: <code>*testing.T</code>, assertions, subtests</li>
+                        <li>Mocking: interfaces for testability, <code>gomock</code> or manual mocks</li>
+                        <li>HTTP handler testing: <code>httptest.ResponseRecorder</code></li>
+                        <li>Database testing: <code>testcontainers-go</code> or in-memory SQLite</li>
+                        <li>Benchmarking: <code>*testing.B</code>, <code>b.N</code> loops</li>
+                        <li>Coverage: <code>go test -cover</code></li>
+                    </ul>
+                </div>
+                
+                <div class="mapping-box">
+                    <strong>Python (pytest/unittest) → Go Testing</strong>
+                    <ul>
+                        <li><code>pytest</code> fixtures → Setup/teardown in <code>TestMain</code> or per-test</li>
+                        <li><code>@pytest.mark.parametrize</code> → Table-driven tests (loop over test cases)</li>
+                        <li><code>unittest.mock.patch</code> → Interface-based mocking or <code>gomock</code></li>
+                        <li>Flask test client → <code>httptest</code> for testing handlers</li>
+                        <li><code>pytest.fixtures(scope="session")</code> → <code>TestMain</code> for global setup</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Go's testing stdlib is powerful—no need for external frameworks initially</li>
+                        <li>Table-driven tests are idiomatic—interviewers expect this pattern</li>
+                        <li>Testing HTTP handlers and DB code is bread-and-butter for backend work</li>
+                        <li>Benchmarking is built-in—Go culture values performance measurement</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Task: Comprehensive Test Suite</strong>
+                    Add tests to your API project:
+                    <ul>
+                        <li>Unit tests for business logic functions (table-driven tests)</li>
+                        <li>HTTP handler tests using <code>httptest</code> (all endpoints)</li>
+                        <li>Database integration tests with testcontainers (PostgreSQL)</li>
+                        <li>Mock external dependencies with interfaces</li>
+                        <li>Test auth middleware (valid/invalid tokens, missing tokens)</li>
+                        <li>Benchmark critical paths (e.g., user lookup, JWT verification)</li>
+                        <li>Aim for >80% coverage on business logic</li>
+                    </ul>
+                    This teaches: Production testing practices, confidence in your code
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>Heavy test frameworks like Ginkgo/Gomega initially (stdlib is enough)</li>
+                        <li>Mocking everything (only mock at boundaries: DB, HTTP clients)</li>
+                        <li>100% coverage (diminishing returns, focus on critical paths)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 9 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 9</div>
+                <div class="week-focus">Real-World API Project (Geospatial Backend)</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Build a Production-Grade API</div>
+                    <ul>
+                        <li>Leverage your geospatial background—build a location-based API</li>
+                        <li>Structure: Clean architecture (handlers → services → repositories)</li>
+                        <li>PostgreSQL with PostGIS extension for spatial queries</li>
+                        <li>Implement pagination, filtering, sorting</li>
+                        <li>Configuration via environment variables (<code>viper</code> or <code>envconfig</code>)</li>
+                        <li>Docker Compose for local development (app + PostgreSQL + PostGIS)</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Portfolio project demonstrating real-world Go skills</li>
+                        <li>Shows you can structure medium-sized applications</li>
+                        <li>Geospatial experience differentiates you in interviews</li>
+                        <li>Demonstrates integration of all previous weeks' concepts</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Project: Location API</strong>
+                    Build a Points of Interest (POI) API:
+                    <ul>
+                        <li>POST /poi (create POI with lat/lon, name, category)</li>
+                        <li>GET /poi (list with pagination)</li>
+                        <li>GET /poi/nearby?lat=X&lon=Y&radius=Z (spatial query using PostGIS)</li>
+                        <li>PUT /poi/:id, DELETE /poi/:id (update/delete)</li>
+                        <li>Auth: JWT-protected endpoints (users can only edit their POIs)</li>
+                        <li>Use PostGIS geometry types and spatial indexes</li>
+                        <li>Structured logging, error handling, tests</li>
+                        <li>Docker Compose setup for easy local running</li>
+                        <li>README with API docs (or use Swagger/OpenAPI)</li>
+                    </ul>
+                    This is your showcase project—make it clean and complete.
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>Over-architecting (no need for hexagonal architecture yet)</li>
+                        <li>Adding every feature (focus on core CRUD + spatial query)</li>
+                        <li>Perfect DevOps setup (simple Dockerfile is enough for now)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 10 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 10</div>
+                <div class="week-focus">Performance, Profiling & Optimization</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li>CPU profiling: <code>pprof</code>, flame graphs</li>
+                        <li>Memory profiling: heap allocations, escape analysis</li>
+                        <li>Goroutine profiling: detecting leaks</li>
+                        <li>HTTP server profiling: <code>import _ "net/http/pprof"</code></li>
+                        <li>Optimization techniques: reducing allocations, using sync.Pool</li>
+                        <li>Database query optimization: EXPLAIN, indexes</li>
+                        <li>Caching strategies: in-memory cache (map + mutex or <code>ristretto</code>)</li>
+                    </ul>
+                </div>
+                
+                <div class="mapping-box">
+                    <strong>Python Profiling → Go</strong>
+                    <ul>
+                        <li><code>cProfile</code> → <code>go tool pprof</code> (CPU profiling)</li>
+                        <li><code>memory_profiler</code> → <code>pprof</code> heap profiling</li>
+                        <li>Flask-Caching → <code>sync.Map</code> or <code>ristretto</code> for in-memory cache</li>
+                        <li>Python GIL limitations → Go's true parallelism (multi-core by default)</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Performance is a key reason companies choose Go—need to demonstrate this</li>
+                        <li>Profiling skills distinguish senior engineers from mid-level</li>
+                        <li>Interviews often ask about Go performance characteristics</li>
+                        <li>Optimization is critical for high-throughput services</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Task: Profile & Optimize Your API</strong>
+                    Performance work on your Week 9 project:
+                    <ul>
+                        <li>Enable pprof endpoint in your API</li>
+                        <li>Load test with <code>hey</code> or <code>wrk</code> (generate traffic)</li>
+                        <li>Capture CPU profile, analyze with <code>go tool pprof</code></li>
+                        <li>Identify hotspots (likely JSON encoding, DB queries)</li>
+                        <li>Add caching layer for frequently accessed POIs</li>
+                        <li>Optimize DB queries: add indexes, use prepared statements</li>
+                        <li>Check for goroutine leaks (goroutine profile)</li>
+                        <li>Measure before/after performance (requests/sec, p99 latency)</li>
+                    </ul>
+                    This teaches: Real performance engineering skills
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>Premature optimization (only optimize after profiling)</li>
+                        <li>Micro-optimizations that don't impact real workload</li>
+                        <li>Unsafe pointer tricks (rarely needed, risky)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 11 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 11</div>
+                <div class="week-focus">Deployment, Docker & Production Patterns</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li>Multi-stage Docker builds (minimize image size)</li>
+                        <li>Graceful shutdown: handling SIGTERM, draining connections</li>
+                        <li>Health checks: <code>/health</code> and <code>/ready</code> endpoints</li>
+                        <li>Configuration: 12-factor app principles, env vars</li>
+                        <li>Metrics: Prometheus integration (<code>prometheus/client_golang</code>)</li>
+                        <li>Structured logging for production (JSON format)</li>
+                        <li>Rate limiting and circuit breakers</li>
+                    </ul>
+                </div>
+                
+                <div class="mapping-box">
+                    <strong>Python Deployment → Go</strong>
+                    <ul>
+                        <li>Gunicorn/uWSGI → Go binary (no WSGI server needed, Go is the server)</li>
+                        <li>Python Dockerfile (multi-stage) → Go Dockerfile (even simpler, static binary)</li>
+                        <li>Flask application factory → main.go with config loading</li>
+                        <li>Flask-Limiter → Rate limiting middleware (<code>golang.org/x/time/rate</code>)</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Production readiness is what separates toy projects from real experience</li>
+                        <li>Kubernetes deployments require health checks, graceful shutdown</li>
+                        <li>Metrics/logs are essential for operating services at scale</li>
+                        <li>Interviewers ask about production experience and deployment</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Task: Production-Ready Deployment</strong>
+                    Productionize your API:
+                    <ul>
+                        <li>Create multi-stage Dockerfile (build → minimal runtime image)</li>
+                        <li>Implement graceful shutdown (context cancellation on SIGTERM)</li>
+                        <li>Add /health and /ready endpoints (check DB connection)</li>
+                        <li>Expose Prometheus metrics (requests, latency, errors)</li>
+                        <li>Add rate limiting middleware (per-user or global)</li>
+                        <li>Deploy to a cloud provider (AWS ECS, GCP Cloud Run, or Fly.io)</li>
+                        <li>Set up CI/CD pipeline (GitHub Actions: test → build → deploy)</li>
+                    </ul>
+                    Now you have a deployed Go API in production!
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>Complex Kubernetes manifests (start simple, add later)</li>
+                        <li>Service mesh initially (overkill for single service)</li>
+                        <li>Every observability tool (Prometheus + logs is enough)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 12 -->
+        <div class="week-block">
+            <div class="week-header">
+                <div class="week-title">Week 12</div>
+                <div class="week-focus">Advanced Patterns & Interview Prep</div>
+            </div>
+            <div class="week-content">
+                <div class="section">
+                    <div class="section-title">Topics</div>
+                    <ul>
+                        <li>Dependency injection patterns (interfaces, constructor injection)</li>
+                        <li>Background jobs: cron jobs (<code>robfig/cron</code>) and task queues</li>
+                        <li>gRPC basics (if relevant for target jobs)</li>
+                        <li>Code organization: project layout, package design</li>
+                        <li>Go idioms and best practices review</li>
+                        <li>Common interview questions (goroutines, channels, interfaces)</li>
+                        <li>Reading production Go code (study popular projects: Kubernetes, Docker, Prometheus)</li>
+                    </ul>
+                </div>
+                
+                <div class="section">
+                    <div class="section-title">Why This Matters</div>
+                    <ul>
+                        <li>Dependency injection improves testability and modularity</li>
+                        <li>Background jobs are common in backend systems (data pipelines, cleanup)</li>
+                        <li>Code organization reflects engineering maturity</li>
+                        <li>Interview prep ensures you can articulate what you've learned</li>
+                    </ul>
+                </div>
+                
+                <div class="project-box">
+                    <strong>Weekend Tasks: Polish & Interview Prep</strong>
+                    Final preparation:
+                    <ul>
+                        <li>Refactor Week 9 project with clean dependency injection</li>
+                        <li>Add background job (e.g., daily cleanup of old POIs)</li>
+                        <li>Write comprehensive README: architecture, setup, API docs</li>
+                        <li>Record demo video or screenshots for portfolio</li>
+                        <li>Practice explaining your project in interview context</li>
+                        <li>Review Go interview questions (goroutines, channels, memory model)</li>
+                        <li>Read 2-3 blog posts on Go best practices</li>
+                        <li>Contribute to an open source Go project (small PR)</li>
+                    </ul>
+                </div>
+                
+                <div class="avoid-box">
+                    <strong>Don't Waste Time On</strong>
+                    <ul>
+                        <li>Learning every Go framework (you've covered the essentials)</li>
+                        <li>Perfectionism (shipping is better than perfect)</li>
+                        <li>Niche topics (generics usage, assembly, cgo—learn on the job)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Final Outcome -->
+        <div class="final-outcome">
+            <h2>What You'll Realistically Achieve After 12 Weeks</h2>
+            
+            <h3 style="color: #6ee7b7; margin-top: 20px; margin-bottom: 15px;">Technical Skills</h3>
+            <ul>
+                <li>Build production-ready REST APIs in Go with proper error handling, logging, and auth</li>
+                <li>Work confidently with PostgreSQL (raw SQL, transactions, migrations)</li>
+                <li>Write concurrent code with goroutines and channels (worker pools, pipelines)</li>
+                <li>Test Go code comprehensively (unit, integration, HTTP handlers)</li>
+                <li>Profile and optimize Go applications (pprof, benchmarking)</li>
+                <li>Deploy Go services with Docker and basic CI/CD</li>
+                <li>Implement middleware, JWT auth, rate limiting</li>
+            </ul>
+            
+            <h3 style="color: #6ee7b7; margin-top: 30px; margin-bottom: 15px;">Career Level</h3>
+            <ul>
+                <li><strong>Junior-to-Mid Go Backend Engineer</strong> (0-2 years Go experience equivalent)</li>
+                <li>You'll have a strong portfolio project (geospatial API)</li>
+                <li>You can pass Go-focused technical interviews for backend roles</li>
+                <li>You understand Go idioms and can read production Go code</li>
+                <li>You're ready for Go backend positions at startups and mid-size companies</li>
+            </ul>
+            
+            <h3 style="color: #6ee7b7; margin-top: 30px; margin-bottom: 15px;">What You're NOT Ready For (Yet)</h3>
+            <ul>
+                <li>Senior Go engineer roles at big tech (need 2+ years production Go experience)</li>
+                <li>Leading Go architecture decisions (learn this on the job)</li>
+                <li>Deep systems programming (kernel-level, networking internals—specialization)</li>
+                <li>Distributed systems expert (that's a long-term goal, not a 12-week target)</li>
+            </ul>
+            
+            <h3 style="color: #6ee7b7; margin-top: 30px; margin-bottom: 15px;">Career Strategy</h3>
+            <ul>
+                <li>Apply for Go backend roles at companies using microservices</li>
+                <li>Your Python/FastAPI experience + new Go skills = strong backend generalist</li>
+                <li>Target companies in geospatial, infrastructure, or fintech (Go-heavy domains)</li>
+                <li>Continue building in both Python and Go—polyglot backend engineers are valuable</li>
+                <li>After 6-12 months in a Go backend role, you'll reach mid-senior level</li>
+            </ul>
+            
+            <h3 style="color: #6ee7b7; margin-top: 30px; margin-bottom: 15px;">Maintaining Python Proficiency</h3>
+            <ul>
+                <li>Keep doing Python work (don't abandon FastAPI/Flask)</li>
+                <li>Use Python for quick scripts, data processing, ML tasks (play to its strengths)</li>
+                <li>Use Go for APIs, concurrency-heavy services, performance-critical paths</li>
+                <li>Being strong in both makes you more marketable than Go-only or Python-only engineers</li>
+            </ul>
+        </div>
+
+        <div style="background: #18181b; padding: 30px; border-radius: 8px; margin-top: 40px; text-align: center; border: 1px solid #27272a;">
+            <h3 style="color: #00ADD8; margin-bottom: 15px;">Next Steps After Week 12</h3>
+            <p style="color: #d4d4d8; font-size: 1.1em; line-height: 1.8;">
+                1. Open source contributions (find Go projects on GitHub)<br>
+                2. System design study (Go context: microservices, event-driven arch)<br>
+                3. Start applying for Go backend roles (you're ready!)<br>
+                4. Build a second project (API gateway, job queue, or real-time system)<br>
+                5. Keep studying concurrency patterns (advanced channels, context patterns)
+            </p>
+        </div>
+        
+        <div style="margin-top: 40px; padding: 20px; background: #27272a; border-radius: 8px; text-align: center;">
+            <p style="color: #a1a1aa; font-style: italic;">
+                "Go is boring, and that's why it's great for backend engineering. Focus on building real systems, not learning exotic features."
+            </p>
+            <p style="color: #71717a; margin-top: 10px;">— Rob Pike (co-creator of Go)</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 5: Middleware & JWT Authentication</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+        h1 { color: #58a6ff; border-bottom: 2px solid #58a6ff; padding-bottom: 10px; }
+        h2 { color: #79c0ff; margin-top: 30px; }
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; }
+        code { font-family: 'Courier New', monospace; color: #79c0ff; }
+        .mapping { background: #1c2128; border-left: 4px solid #f0883e; padding: 15px; margin: 15px 0; }
+        .project { background: #1c2128; border-left: 4px solid #3fb950; padding: 15px; margin: 15px 0; }
+        .note { background: #1c2128; border-left: 4px solid #d29922; padding: 15px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <h1>Week 5: Middleware & JWT Authentication</h1>
+    
+    <p><strong>Goal:</strong> Master middleware patterns and implement JWT-based authentication.</p>
+
+    <h2>1. Understanding Middleware</h2>
+
+    <div class="mapping">
+        <strong>Flask:</strong> <code>@decorator</code> or <code>before_request</code><br>
+        <strong>Go:</strong> <code>func(http.Handler) http.Handler</code>
+    </div>
+
+    <p>Middleware wraps HTTP handlers to add cross-cutting functionality.</p>
+
+    <h2>2. Basic Middleware Pattern</h2>
+
+    <pre><code>package main
+
+import (
+    "fmt"
+    "net/http"
+    "time"
+)
+
+// Middleware function signature
+func loggingMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        
+        // Before handler
+        fmt.Printf("[%s] %s %s\n", time.Now().Format("15:04:05"), r.Method, r.URL.Path)
+        
+        // Call next handler
+        next.ServeHTTP(w, r)
+        
+        // After handler
+        fmt.Printf("Request took %v\n", time.Since(start))
+    })
+}
+
+func helloHandler(w http.ResponseWriter, r *http.Request) {
+    w.Write([]byte("Hello, World!"))
+}
+
+func main() {
+    mux := http.NewServeMux()
+    mux.HandleFunc("/hello", helloHandler)
+    
+    // Wrap with middleware
+    wrappedMux := loggingMiddleware(mux)
+    
+    http.ListenAndServe(":8080", wrappedMux)
+}
+</code></pre>
+
+    <h2>3. Chaining Multiple Middlewares</h2>
+
+    <pre><code>package main
+
+import (
+    "fmt"
+    "net/http"
+    "time"
+)
+
+func loggingMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        fmt.Printf("[%s] %s %s\n", time.Now().Format("15:04:05"), r.Method, r.URL.Path)
+        next.ServeHTTP(w, r)
+    })
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        
+        // Handle preflight
+        if r.Method == "OPTIONS" {
+            w.WriteHeader(http.StatusOK)
+            return
+        }
+        
+        next.ServeHTTP(w, r)
+    })
+}
+
+func authMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        token := r.Header.Get("Authorization")
+        if token == "" {
+            http.Error(w, "Unauthorized", http.StatusUnauthorized)
+            return
+        }
+        
+        // Verify token (simplified)
+        if token != "Bearer secret-token" {
+            http.Error(w, "Invalid token", http.StatusUnauthorized)
+            return
+        }
+        
+        next.ServeHTTP(w, r)
+    })
+}
+
+func protectedHandler(w http.ResponseWriter, r *http.Request) {
+    w.Write([]byte("Protected resource"))
+}
+
+func main() {
+    mux := http.NewServeMux()
+    mux.HandleFunc("/api/protected", protectedHandler)
+    
+    // Chain middlewares: cors -> logging -> auth -> handler
+    handler := corsMiddleware(loggingMiddleware(authMiddleware(mux)))
+    
+    http.ListenAndServe(":8080", handler)
+}
+</code></pre>
+
+    <h2>4. Middleware with Chi Router</h2>
+
+    <pre><code>package main
+
+import (
+    "fmt"
+    "net/http"
+    "time"
+    
+    "github.com/go-chi/chi/v5"
+    "github.com/go-chi/chi/v5/middleware"
+)
+
+func loggingMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        next.ServeHTTP(w, r)
+        fmt.Printf("%s %s - %v\n", r.Method, r.URL.Path, time.Since(start))
+    })
+}
+
+func main() {
+    r := chi.NewRouter()
+    
+    // Global middlewares (apply to all routes)
+    r.Use(middleware.Logger)      // Chi's built-in logger
+    r.Use(middleware.Recoverer)   // Recover from panics
+    r.Use(loggingMiddleware)      // Your custom middleware
+    
+    // Public routes
+    r.Get("/api/public", func(w http.ResponseWriter, r *http.Request) {
+        w.Write([]byte("Public endpoint"))
+    })
+    
+    // Protected routes group
+    r.Group(func(r chi.Router) {
+        r.Use(authMiddleware)  // Only for this group
+        r.Get("/api/protected", protectedHandler)
+    })
+    
+    http.ListenAndServe(":8080", r)
+}
+
+func authMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Auth logic here
+        next.ServeHTTP(w, r)
+    })
+}
+
+func protectedHandler(w http.ResponseWriter, r *http.Request) {
+    w.Write([]byte("Protected data"))
+}
+</code></pre>
+
+    <h2>5. Password Hashing with Bcrypt</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>bcrypt.hashpw(password, salt)</code><br>
+        <strong>Go:</strong> <code>bcrypt.GenerateFromPassword(password, cost)</code>
+    </div>
+
+    <p><strong>Install:</strong> <code>go get golang.org/x/crypto/bcrypt</code></p>
+
+    <pre><code>package main
+
+import (
+    "fmt"
+    
+    "golang.org/x/crypto/bcrypt"
+)
+
+func hashPassword(password string) (string, error) {
+    // Cost of 10 is a good default (higher = more secure but slower)
+    hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
+    if err != nil {
+        return "", err
+    }
+    return string(hash), nil
+}
+
+func verifyPassword(password, hash string) bool {
+    err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+    return err == nil
+}
+
+func main() {
+    password := "my-secret-password"
+    
+    // Hash password
+    hash, err := hashPassword(password)
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println("Hash:", hash)
+    
+    // Verify correct password
+    if verifyPassword(password, hash) {
+        fmt.Println("Password correct!")
+    }
+    
+    // Verify wrong password
+    if !verifyPassword("wrong-password", hash) {
+        fmt.Println("Password incorrect!")
+    }
+}
+</code></pre>
+
+    <h2>6. JWT Token Generation and Validation</h2>
+
+    <p><strong>Install:</strong> <code>go get github.com/golang-jwt/jwt/v5</code></p>
+
+    <pre><code>package main
+
+import (
+    "fmt"
+    "time"
+    
+    "github.com/golang-jwt/jwt/v5"
+)
+
+var jwtSecret = []byte("your-secret-key-change-in-production")
+
+// Custom claims (payload)
+type Claims struct {
+    UserID int    `json:"user_id"`
+    Email  string `json:"email"`
+    jwt.RegisteredClaims
+}
+
+func generateToken(userID int, email string) (string, error) {
+    claims := Claims{
+        UserID: userID,
+        Email:  email,
+        RegisteredClaims: jwt.RegisteredClaims{
+            ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+            IssuedAt:  jwt.NewNumericDate(time.Now()),
+            Issuer:    "myapp",
+        },
+    }
+    
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    return token.SignedString(jwtSecret)
+}
+
+func validateToken(tokenString string) (*Claims, error) {
+    token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+        // Verify signing method
+        if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, fmt.Errorf("unexpected signing method")
+        }
+        return jwtSecret, nil
+    })
+    
+    if err != nil {
+        return nil, err
+    }
+    
+    if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+        return claims, nil
+    }
+    
+    return nil, fmt.Errorf("invalid token")
+}
+
+func main() {
+    // Generate token
+    token, err := generateToken(123, "alice@example.com")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println("Token:", token)
+    
+    // Validate token
+    claims, err := validateToken(token)
+    if err != nil {
+        fmt.Println("Invalid token:", err)
+        return
+    }
+    
+    fmt.Printf("User ID: %d, Email: %s\n", claims.UserID, claims.Email)
+}
+</code></pre>
+
+    <h2>7. Complete Auth System: Register & Login</h2>
+
+    <pre><code>package main
+
+import (
+    "database/sql"
+    "encoding/json"
+    "net/http"
+    "time"
+    
+    "github.com/go-chi/chi/v5"
+    "github.com/golang-jwt/jwt/v5"
+    "golang.org/x/crypto/bcrypt"
+    _ "github.com/lib/pq"
+)
+
+var jwtSecret = []byte("your-secret-key")
+
+type Claims struct {
+    UserID int    `json:"user_id"`
+    Email  string `json:"email"`
+    jwt.RegisteredClaims
+}
+
+type App struct {
+    DB *sql.DB
+}
+
+// POST /auth/register
+func (app *App) registerHandler(w http.ResponseWriter, r *http.Request) {
+    var input struct {
+        Name     string `json:"name"`
+        Email    string `json:"email"`
+        Password string `json:"password"`
+    }
+    
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid JSON", http.StatusBadRequest)
+        return
+    }
+    
+    // Validate
+    if len(input.Password) < 8 {
+        http.Error(w, "Password must be at least 8 characters", http.StatusBadRequest)
+        return
+    }
+    
+    // Hash password
+    hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), 10)
+    if err != nil {
+        http.Error(w, "Server error", http.StatusInternalServerError)
+        return
+    }
+    
+    // Insert user
+    query := `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id`
+    var userID int
+    err = app.DB.QueryRow(query, input.Name, input.Email, string(hash)).Scan(&userID)
+    if err != nil {
+        http.Error(w, "Email already exists", http.StatusConflict)
+        return
+    }
+    
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "user_id": userID,
+        "message": "User created successfully",
+    })
+}
+
+// POST /auth/login
+func (app *App) loginHandler(w http.ResponseWriter, r *http.Request) {
+    var input struct {
+        Email    string `json:"email"`
+        Password string `json:"password"`
+    }
+    
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid JSON", http.StatusBadRequest)
+        return
+    }
+    
+    // Get user from DB
+    query := `SELECT id, email, password FROM users WHERE email = $1`
+    var userID int
+    var email, passwordHash string
+    
+    err := app.DB.QueryRow(query, input.Email).Scan(&userID, &email, &passwordHash)
+    if err == sql.ErrNoRows {
+        http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+        return
+    }
+    if err != nil {
+        http.Error(w, "Server error", http.StatusInternalServerError)
+        return
+    }
+    
+    // Verify password
+    if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(input.Password)); err != nil {
+        http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+        return
+    }
+    
+    // Generate JWT
+    claims := Claims{
+        UserID: userID,
+        Email:  email,
+        RegisteredClaims: jwt.RegisteredClaims{
+            ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+            IssuedAt:  jwt.NewNumericDate(time.Now()),
+        },
+    }
+    
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    tokenString, err := token.SignedString(jwtSecret)
+    if err != nil {
+        http.Error(w, "Server error", http.StatusInternalServerError)
+        return
+    }
+    
+    json.NewEncoder(w).Encode(map[string]string{
+        "token": tokenString,
+    })
+}
+
+// Auth middleware
+func (app *App) authMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        authHeader := r.Header.Get("Authorization")
+        if authHeader == "" {
+            http.Error(w, "Missing authorization header", http.StatusUnauthorized)
+            return
+        }
+        
+        // Extract token (format: "Bearer <token>")
+        if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+            http.Error(w, "Invalid authorization header", http.StatusUnauthorized)
+            return
+        }
+        tokenString := authHeader[7:]
+        
+        // Parse and validate token
+        token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+            return jwtSecret, nil
+        })
+        
+        if err != nil || !token.Valid {
+            http.Error(w, "Invalid token", http.StatusUnauthorized)
+            return
+        }
+        
+        // Extract claims and add to context
+        claims := token.Claims.(*Claims)
+        ctx := context.WithValue(r.Context(), "user_id", claims.UserID)
+        ctx = context.WithValue(ctx, "email", claims.Email)
+        
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}
+
+// Protected endpoint
+func (app *App) profileHandler(w http.ResponseWriter, r *http.Request) {
+    userID := r.Context().Value("user_id").(int)
+    email := r.Context().Value("email").(string)
+    
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "user_id": userID,
+        "email":   email,
+    })
+}
+
+func main() {
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    db, _ := sql.Open("postgres", connStr)
+    defer db.Close()
+    
+    // Create users table with password field
+    db.Exec(`CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`)
+    
+    app := &App{DB: db}
+    
+    r := chi.NewRouter()
+    
+    // Public routes
+    r.Post("/auth/register", app.registerHandler)
+    r.Post("/auth/login", app.loginHandler)
+    
+    // Protected routes
+    r.Group(func(r chi.Router) {
+        r.Use(app.authMiddleware)
+        r.Get("/api/profile", app.profileHandler)
+    })
+    
+    http.ListenAndServe(":8080", r)
+}
+</code></pre>
+
+    <div class="project">
+        <h2>Weekend Mini-Project: Secure Blog API</h2>
+        
+        <p><strong>Add authentication to your blog API:</strong></p>
+        <ul>
+            <li>POST /auth/register - Create user account</li>
+            <li>POST /auth/login - Get JWT token</li>
+            <li>Protect POST/PUT/DELETE endpoints (require auth)</li>
+            <li>Add user_id foreign key to posts table</li>
+            <li>Users can only edit/delete their own posts</li>
+            <li>Add middleware to extract user from JWT</li>
+        </ul>
+
+        <p><strong>Test workflow:</strong></p>
+        <pre><code># Register
+curl -X POST http://localhost:8080/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com","password":"password123"}'
+
+# Login
+TOKEN=$(curl -X POST http://localhost:8080/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"alice@example.com","password":"password123"}' \
+  | jq -r '.token')
+
+# Create post (authenticated)
+curl -X POST http://localhost:8080/api/posts \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"My Post","content":"Hello World"}'
+</code></pre>
+    </div>
+
+    <h2>Key Takeaways</h2>
+    <ul>
+        <li>Middleware pattern: <code>func(http.Handler) http.Handler</code></li>
+        <li>Use <code>bcrypt</code> for password hashing (never store plain passwords)</li>
+        <li>JWT for stateless authentication</li>
+        <li>Store user info in request context after validation</li>
+        <li>Use route groups for applying middleware selectively</li>
+        <li>Always verify JWT signature and expiration</li>
+    </ul>
+
+    <div class="note">
+        <strong>Next Week:</strong> Goroutines, channels, and concurrency patterns!
+    </div>
+</body>
+</html>

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 2: HTTP Servers & REST APIs</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0d1117;
+            color: #c9d1d9;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #58a6ff;
+            border-bottom: 2px solid #58a6ff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #79c0ff;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #8b949e;
+        }
+        pre {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Courier New', monospace;
+            color: #79c0ff;
+        }
+        .mapping {
+            background: #1c2128;
+            border-left: 4px solid #f0883e;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .project {
+            background: #1c2128;
+            border-left: 4px solid #3fb950;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .note {
+            background: #1c2128;
+            border-left: 4px solid #d29922;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Week 2: HTTP Servers & REST APIs</h1>
+    
+    <p><strong>Goal:</strong> Build HTTP servers and REST APIs using Go's standard library. Map Flask/FastAPI patterns to Go.</p>
+
+    <h2>1. Basic HTTP Server</h2>
+
+    <div class="mapping">
+        <strong>Flask:</strong> <code>@app.route("/hello")</code><br>
+        <strong>Go:</strong> <code>http.HandleFunc("/hello", handler)</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "fmt"
+    "net/http"
+)
+
+// Handler function (like a Flask view function)
+func helloHandler(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprintf(w, "Hello, World!")
+}
+
+func main() {
+    // Register route
+    http.HandleFunc("/hello", helloHandler)
+    
+    // Start server
+    fmt.Println("Server starting on :8080")
+    err := http.ListenAndServe(":8080", nil)
+    if err != nil {
+        fmt.Println("Error:", err)
+    }
+}
+</code></pre>
+
+    <p><strong>Run:</strong> <code>go run main.go</code> then visit <code>http://localhost:8080/hello</code></p>
+
+    <p><strong>Explanation:</strong></p>
+    <ul>
+        <li><code>http.ResponseWriter</code> - Write response (like Flask's <code>return</code>)</li>
+        <li><code>*http.Request</code> - Request object (like Flask's <code>request</code>)</li>
+        <li>No decorators - use <code>HandleFunc</code> to map routes</li>
+    </ul>
+
+    <h2>2. JSON Responses</h2>
+
+    <div class="mapping">
+        <strong>Flask:</strong> <code>return jsonify({"message": "hello"})</code><br>
+        <strong>Go:</strong> <code>json.NewEncoder(w).Encode(data)</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "encoding/json"
+    "net/http"
+)
+
+type Response struct {
+    Message string `json:"message"`
+    Status  string `json:"status"`
+}
+
+func jsonHandler(w http.ResponseWriter, r *http.Request) {
+    // Set content type
+    w.Header().Set("Content-Type", "application/json")
+    
+    // Create response
+    resp := Response{
+        Message: "Hello from Go!",
+        Status:  "success",
+    }
+    
+    // Encode and send JSON
+    json.NewEncoder(w).Encode(resp)
+}
+
+func main() {
+    http.HandleFunc("/api/hello", jsonHandler)
+    http.ListenAndServe(":8080", nil)
+}
+</code></pre>
+
+    <p><strong>Important:</strong> Struct fields must be capitalized to be exported (visible to JSON encoder)</p>
+
+    <h2>3. Reading JSON Requests</h2>
+
+    <div class="mapping">
+        <strong>Flask:</strong> <code>data = request.get_json()</code><br>
+        <strong>Go:</strong> <code>json.NewDecoder(r.Body).Decode(&data)</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "encoding/json"
+    "net/http"
+)
+
+type CreateUserRequest struct {
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
+
+type CreateUserResponse struct {
+    ID      int    `json:"id"`
+    Name    string `json:"name"`
+    Email   string `json:"email"`
+    Message string `json:"message"`
+}
+
+func createUserHandler(w http.ResponseWriter, r *http.Request) {
+    // Only accept POST
+    if r.Method != http.MethodPost {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+    
+    // Parse JSON request body
+    var req CreateUserRequest
+    err := json.NewDecoder(r.Body).Decode(&req)
+    if err != nil {
+        http.Error(w, "Invalid JSON", http.StatusBadRequest)
+        return
+    }
+    defer r.Body.Close()
+    
+    // Validation
+    if req.Name == "" || req.Email == "" {
+        http.Error(w, "Name and email required", http.StatusBadRequest)
+        return
+    }
+    
+    // Create response
+    resp := CreateUserResponse{
+        ID:      1,
+        Name:    req.Name,
+        Email:   req.Email,
+        Message: "User created successfully",
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)  // 201
+    json.NewEncoder(w).Encode(resp)
+}
+
+func main() {
+    http.HandleFunc("/api/users", createUserHandler)
+    http.ListenAndServe(":8080", nil)
+}
+</code></pre>
+
+    <p><strong>Test with curl:</strong></p>
+    <pre><code>curl -X POST http://localhost:8080/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com"}'
+</code></pre>
+
+    <h2>4. Query Parameters</h2>
+
+    <div class="mapping">
+        <strong>Flask:</strong> <code>request.args.get('page')</code><br>
+        <strong>Go:</strong> <code>r.URL.Query().Get("page")</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "encoding/json"
+    "net/http"
+    "strconv"
+)
+
+type User struct {
+    ID    int    `json:"id"`
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
+
+func getUsersHandler(w http.ResponseWriter, r *http.Request) {
+    // Get query parameters
+    pageStr := r.URL.Query().Get("page")
+    limitStr := r.URL.Query().Get("limit")
+    
+    // Default values
+    page := 1
+    limit := 10
+    
+    // Parse if provided
+    if pageStr != "" {
+        if p, err := strconv.Atoi(pageStr); err == nil {
+            page = p
+        }
+    }
+    if limitStr != "" {
+        if l, err := strconv.Atoi(limitStr); err == nil {
+            limit = l
+        }
+    }
+    
+    // Mock data
+    users := []User{
+        {ID: 1, Name: "Alice", Email: "alice@example.com"},
+        {ID: 2, Name: "Bob", Email: "bob@example.com"},
+        {ID: 3, Name: "Charlie", Email: "charlie@example.com"},
+    }
+    
+    response := map[string]interface{}{
+        "page":  page,
+        "limit": limit,
+        "data":  users,
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(response)
+}
+
+func main() {
+    http.HandleFunc("/api/users", getUsersHandler)
+    http.ListenAndServe(":8080", nil)
+}
+</code></pre>
+
+    <p><strong>Test:</strong> <code>http://localhost:8080/api/users?page=2&limit=5</code></p>
+
+    <h2>5. URL Path Parameters with Chi Router</h2>
+
+    <div class="note">
+        <strong>Note:</strong> Go's stdlib doesn't have path params. We'll use <code>chi</code> router (very popular, minimal).
+    </div>
+
+    <p><strong>Install chi:</strong> <code>go get github.com/go-chi/chi/v5</code></p>
+
+    <pre><code>package main
+
+import (
+    "encoding/json"
+    "net/http"
+    "strconv"
+    
+    "github.com/go-chi/chi/v5"
+)
+
+type User struct {
+    ID    int    `json:"id"`
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
+
+func getUserByIDHandler(w http.ResponseWriter, r *http.Request) {
+    // Get path parameter
+    idStr := chi.URLParam(r, "id")
+    id, err := strconv.Atoi(idStr)
+    if err != nil {
+        http.Error(w, "Invalid user ID", http.StatusBadRequest)
+        return
+    }
+    
+    // Mock lookup
+    user := User{
+        ID:    id,
+        Name:  "Alice",
+        Email: "alice@example.com",
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(user)
+}
+
+func main() {
+    r := chi.NewRouter()
+    
+    // Define route with path parameter
+    r.Get("/api/users/{id}", getUserByIDHandler)
+    
+    http.ListenAndServe(":8080", r)
+}
+</code></pre>
+
+    <div class="mapping">
+        <strong>Flask:</strong> <code>@app.route("/users/&lt;int:id&gt;")</code><br>
+        <strong>Go (chi):</strong> <code>r.Get("/users/{id}", handler)</code>
+    </div>
+
+    <h2>6. Full CRUD API</h2>
+
+    <pre><code>package main
+
+import (
+    "encoding/json"
+    "net/http"
+    "strconv"
+    "sync"
+    
+    "github.com/go-chi/chi/v5"
+)
+
+type User struct {
+    ID    int    `json:"id"`
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
+
+// In-memory storage (use DB in production)
+var (
+    users   = make(map[int]User)
+    usersMu sync.RWMutex
+    nextID  = 1
+)
+
+// GET /api/users - List all users
+func listUsersHandler(w http.ResponseWriter, r *http.Request) {
+    usersMu.RLock()
+    defer usersMu.RUnlock()
+    
+    userList := make([]User, 0, len(users))
+    for _, user := range users {
+        userList = append(userList, user)
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(userList)
+}
+
+// GET /api/users/{id} - Get user by ID
+func getUserHandler(w http.ResponseWriter, r *http.Request) {
+    id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+    
+    usersMu.RLock()
+    user, exists := users[id]
+    usersMu.RUnlock()
+    
+    if !exists {
+        http.Error(w, "User not found", http.StatusNotFound)
+        return
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(user)
+}
+
+// POST /api/users - Create user
+func createUserHandler(w http.ResponseWriter, r *http.Request) {
+    var input struct {
+        Name  string `json:"name"`
+        Email string `json:"email"`
+    }
+    
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid JSON", http.StatusBadRequest)
+        return
+    }
+    
+    usersMu.Lock()
+    user := User{
+        ID:    nextID,
+        Name:  input.Name,
+        Email: input.Email,
+    }
+    users[nextID] = user
+    nextID++
+    usersMu.Unlock()
+    
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(user)
+}
+
+// PUT /api/users/{id} - Update user
+func updateUserHandler(w http.ResponseWriter, r *http.Request) {
+    id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+    
+    var input struct {
+        Name  string `json:"name"`
+        Email string `json:"email"`
+    }
+    
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid JSON", http.StatusBadRequest)
+        return
+    }
+    
+    usersMu.Lock()
+    user, exists := users[id]
+    if !exists {
+        usersMu.Unlock()
+        http.Error(w, "User not found", http.StatusNotFound)
+        return
+    }
+    
+    user.Name = input.Name
+    user.Email = input.Email
+    users[id] = user
+    usersMu.Unlock()
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(user)
+}
+
+// DELETE /api/users/{id} - Delete user
+func deleteUserHandler(w http.ResponseWriter, r *http.Request) {
+    id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+    
+    usersMu.Lock()
+    _, exists := users[id]
+    if !exists {
+        usersMu.Unlock()
+        http.Error(w, "User not found", http.StatusNotFound)
+        return
+    }
+    
+    delete(users, id)
+    usersMu.Unlock()
+    
+    w.WriteHeader(http.StatusNoContent)  // 204
+}
+
+func main() {
+    r := chi.NewRouter()
+    
+    // Routes
+    r.Get("/api/users", listUsersHandler)
+    r.Get("/api/users/{id}", getUserHandler)
+    r.Post("/api/users", createUserHandler)
+    r.Put("/api/users/{id}", updateUserHandler)
+    r.Delete("/api/users/{id}", deleteUserHandler)
+    
+    println("Server running on :8080")
+    http.ListenAndServe(":8080", r)
+}
+</code></pre>
+
+    <p><strong>Test the API:</strong></p>
+    <pre><code># Create user
+curl -X POST http://localhost:8080/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com"}'
+
+# List users
+curl http://localhost:8080/api/users
+
+# Get user
+curl http://localhost:8080/api/users/1
+
+# Update user
+curl -X PUT http://localhost:8080/api/users/1 \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice Updated","email":"new@example.com"}'
+
+# Delete user
+curl -X DELETE http://localhost:8080/api/users/1
+</code></pre>
+
+    <div class="project">
+        <h2>Weekend Mini-Project: Product API</h2>
+        
+        <p><strong>Build a REST API for managing products with:</strong></p>
+        <ul>
+            <li>GET /api/products - List all products (support pagination)</li>
+            <li>GET /api/products/{id} - Get product by ID</li>
+            <li>POST /api/products - Create product</li>
+            <li>PUT /api/products/{id} - Update product</li>
+            <li>DELETE /api/products/{id} - Delete product</li>
+            <li>GET /api/products/search?q=keyword - Search products</li>
+        </ul>
+
+        <p><strong>Product model:</strong></p>
+        <pre><code>type Product struct {
+    ID          int     `json:"id"`
+    Name        string  `json:"name"`
+    Description string  `json:"description"`
+    Price       float64 `json:"price"`
+    Stock       int     `json:"stock"`
+}
+</code></pre>
+
+        <p><strong>Extra challenges:</strong></p>
+        <ul>
+            <li>Add validation (price must be positive, name required)</li>
+            <li>Add filtering (GET /api/products?min_price=10&max_price=100)</li>
+            <li>Add sorting (GET /api/products?sort=price&order=desc)</li>
+            <li>Return proper HTTP status codes</li>
+        </ul>
+
+        <p><strong>Starter template:</strong></p>
+        <pre><code>package main
+
+import (
+    "encoding/json"
+    "net/http"
+    "strconv"
+    "strings"
+    "sync"
+    
+    "github.com/go-chi/chi/v5"
+)
+
+type Product struct {
+    ID          int     `json:"id"`
+    Name        string  `json:"name"`
+    Description string  `json:"description"`
+    Price       float64 `json:"price"`
+    Stock       int     `json:"stock"`
+}
+
+var (
+    products   = make(map[int]Product)
+    productsMu sync.RWMutex
+    nextID     = 1
+)
+
+func listProductsHandler(w http.ResponseWriter, r *http.Request) {
+    // TODO: Implement list with pagination
+    // Query params: page, limit, min_price, max_price
+}
+
+func searchProductsHandler(w http.ResponseWriter, r *http.Request) {
+    query := r.URL.Query().Get("q")
+    
+    productsMu.RLock()
+    defer productsMu.RUnlock()
+    
+    var results []Product
+    for _, product := range products {
+        if strings.Contains(
+            strings.ToLower(product.Name), 
+            strings.ToLower(query),
+        ) {
+            results = append(results, product)
+        }
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(results)
+}
+
+// TODO: Implement other handlers
+
+func main() {
+    r := chi.NewRouter()
+    
+    r.Get("/api/products", listProductsHandler)
+    r.Get("/api/products/search", searchProductsHandler)
+    r.Get("/api/products/{id}", getProductHandler)
+    r.Post("/api/products", createProductHandler)
+    r.Put("/api/products/{id}", updateProductHandler)
+    r.Delete("/api/products/{id}", deleteProductHandler)
+    
+    println("Server running on :8080")
+    http.ListenAndServe(":8080", r)
+}
+</code></pre>
+    </div>
+
+    <h2>Key Takeaways</h2>
+    <ul>
+        <li><code>net/http</code> is powerful - no heavy framework needed</li>
+        <li>Use <code>chi</code> for routing (clean, minimal, production-ready)</li>
+        <li>Always set <code>Content-Type: application/json</code></li>
+        <li>Check HTTP methods explicitly</li>
+        <li>Use <code>sync.RWMutex</code> for thread-safe in-memory storage</li>
+        <li>Return proper HTTP status codes (200, 201, 400, 404, 500)</li>
+    </ul>
+
+    <div class="note">
+        <strong>Next Week:</strong> We'll connect to PostgreSQL and replace in-memory storage with a real database!
+    </div>
+</body>
+</html>

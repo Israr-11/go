@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 3: PostgreSQL & Database Integration</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0d1117;
+            color: #c9d1d9;
+            line-height: 1.6;
+        }
+        h1 { color: #58a6ff; border-bottom: 2px solid #58a6ff; padding-bottom: 10px; }
+        h2 { color: #79c0ff; margin-top: 30px; }
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; }
+        code { font-family: 'Courier New', monospace; color: #79c0ff; }
+        .mapping { background: #1c2128; border-left: 4px solid #f0883e; padding: 15px; margin: 15px 0; }
+        .project { background: #1c2128; border-left: 4px solid #3fb950; padding: 15px; margin: 15px 0; }
+        .note { background: #1c2128; border-left: 4px solid #d29922; padding: 15px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <h1>Week 3: PostgreSQL & Database Integration</h1>
+    
+    <p><strong>Goal:</strong> Connect to PostgreSQL, write raw SQL queries, handle transactions, and build database-backed APIs.</p>
+
+    <h2>1. Setup PostgreSQL with Docker</h2>
+
+    <p><strong>docker-compose.yml:</strong></p>
+    <pre><code>version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: gouser
+      POSTGRES_PASSWORD: gopass
+      POSTGRES_DB: godb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+</code></pre>
+
+    <p><strong>Start it:</strong> <code>docker-compose up -d</code></p>
+
+    <h2>2. Connect to PostgreSQL</h2>
+
+    <p><strong>Install driver:</strong> <code>go get github.com/lib/pq</code></p>
+
+    <div class="mapping">
+        <strong>Python (psycopg2):</strong> <code>conn = psycopg2.connect(...)</code><br>
+        <strong>Go:</strong> <code>db, err := sql.Open("postgres", connStr)</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "database/sql"
+    "fmt"
+    
+    _ "github.com/lib/pq"  // Import for side effects
+)
+
+func main() {
+    // Connection string
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    
+    // Open connection
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+    
+    // Test connection
+    err = db.Ping()
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Println("Successfully connected to PostgreSQL!")
+}
+</code></pre>
+
+    <div class="note">
+        <strong>Important:</strong> <code>sql.DB</code> is a connection pool - don't close it after each query!
+    </div>
+
+    <h2>3. Create Tables with Migrations</h2>
+
+    <p><strong>migrations/001_create_users.sql:</strong></p>
+    <pre><code>CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    age INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+</code></pre>
+
+    <p><strong>Run migration manually or use this Go code:</strong></p>
+    <pre><code>package main
+
+import (
+    "database/sql"
+    "fmt"
+    
+    _ "github.com/lib/pq"
+)
+
+func createTables(db *sql.DB) error {
+    query := `
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        age INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    `
+    
+    _, err := db.Exec(query)
+    return err
+}
+
+func main() {
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+    
+    err = createTables(db)
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Println("Tables created successfully!")
+}
+</code></pre>
+
+    <h2>4. Insert Data</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>cursor.execute("INSERT INTO users ...")</code><br>
+        <strong>Go:</strong> <code>db.Exec("INSERT INTO users ...")</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "database/sql"
+    "fmt"
+    
+    _ "github.com/lib/pq"
+)
+
+type User struct {
+    ID    int
+    Name  string
+    Email string
+    Age   int
+}
+
+func insertUser(db *sql.DB, user User) (int, error) {
+    query := `
+        INSERT INTO users (name, email, age)
+        VALUES ($1, $2, $3)
+        RETURNING id
+    `
+    
+    var id int
+    err := db.QueryRow(query, user.Name, user.Email, user.Age).Scan(&id)
+    if err != nil {
+        return 0, err
+    }
+    
+    return id, nil
+}
+
+func main() {
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+    
+    user := User{
+        Name:  "Alice",
+        Email: "alice@example.com",
+        Age:   30,
+    }
+    
+    id, err := insertUser(db, user)
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Created user with ID: %d\n", id)
+}
+</code></pre>
+
+    <p><strong>Important:</strong> Use <code>$1, $2, $3</code> for parameterized queries (prevents SQL injection)</p>
+
+    <h2>5. Query Data</h2>
+
+    <pre><code>package main
+
+import (
+    "database/sql"
+    "fmt"
+    
+    _ "github.com/lib/pq"
+)
+
+type User struct {
+    ID    int
+    Name  string
+    Email string
+    Age   int
+}
+
+// Get single user
+func getUserByID(db *sql.DB, id int) (*User, error) {
+    query := `SELECT id, name, email, age FROM users WHERE id = $1`
+    
+    var user User
+    err := db.QueryRow(query, id).Scan(&user.ID, &user.Name, &user.Email, &user.Age)
+    if err == sql.ErrNoRows {
+        return nil, nil  // Not found
+    }
+    if err != nil {
+        return nil, err
+    }
+    
+    return &user, nil
+}
+
+// Get all users
+func getAllUsers(db *sql.DB) ([]User, error) {
+    query := `SELECT id, name, email, age FROM users ORDER BY id`
+    
+    rows, err := db.Query(query)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+    
+    var users []User
+    for rows.Next() {
+        var user User
+        err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Age)
+        if err != nil {
+            return nil, err
+        }
+        users = append(users, user)
+    }
+    
+    // Check for errors during iteration
+    if err = rows.Err(); err != nil {
+        return nil, err
+    }
+    
+    return users, nil
+}
+
+func main() {
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+    
+    // Get single user
+    user, err := getUserByID(db, 1)
+    if err != nil {
+        panic(err)
+    }
+    if user != nil {
+        fmt.Printf("User: %+v\n", user)
+    }
+    
+    // Get all users
+    users, err := getAllUsers(db)
+    if err != nil {
+        panic(err)
+    }
+    for _, u := range users {
+        fmt.Printf("ID: %d, Name: %s, Email: %s\n", u.ID, u.Name, u.Email)
+    }
+}
+</code></pre>
+
+    <div class="note">
+        <strong>Pattern:</strong> Use <code>QueryRow()</code> for single result, <code>Query()</code> for multiple rows
+    </div>
+
+    <h2>6. Update and Delete</h2>
+
+    <pre><code>package main
+
+import (
+    "database/sql"
+    "fmt"
+    
+    _ "github.com/lib/pq"
+)
+
+func updateUser(db *sql.DB, id int, name, email string) error {
+    query := `UPDATE users SET name = $1, email = $2 WHERE id = $3`
+    
+    result, err := db.Exec(query, name, email, id)
+    if err != nil {
+        return err
+    }
+    
+    // Check if user existed
+    rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return err
+    }
+    
+    if rowsAffected == 0 {
+        return fmt.Errorf("user not found")
+    }
+    
+    return nil
+}
+
+func deleteUser(db *sql.DB, id int) error {
+    query := `DELETE FROM users WHERE id = $1`
+    
+    result, err := db.Exec(query, id)
+    if err != nil {
+        return err
+    }
+    
+    rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return err
+    }
+    
+    if rowsAffected == 0 {
+        return fmt.Errorf("user not found")
+    }
+    
+    return nil
+}
+
+func main() {
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+    
+    // Update
+    err = updateUser(db, 1, "Alice Updated", "newemail@example.com")
+    if err != nil {
+        fmt.Println("Update error:", err)
+    } else {
+        fmt.Println("User updated successfully")
+    }
+    
+    // Delete
+    err = deleteUser(db, 1)
+    if err != nil {
+        fmt.Println("Delete error:", err)
+    } else {
+        fmt.Println("User deleted successfully")
+    }
+}
+</code></pre>
+
+    <h2>7. Transactions</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>with conn.cursor() as cursor:</code><br>
+        <strong>Go:</strong> <code>tx, err := db.Begin()</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "database/sql"
+    "fmt"
+    
+    _ "github.com/lib/pq"
+)
+
+func transferFunds(db *sql.DB, fromUserID, toUserID int, amount float64) error {
+    // Start transaction
+    tx, err := db.Begin()
+    if err != nil {
+        return err
+    }
+    
+    // Defer rollback (will be ignored if tx.Commit() succeeds)
+    defer tx.Rollback()
+    
+    // Deduct from sender
+    _, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE user_id = $2`, amount, fromUserID)
+    if err != nil {
+        return err
+    }
+    
+    // Add to receiver
+    _, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE user_id = $2`, amount, toUserID)
+    if err != nil {
+        return err
+    }
+    
+    // Commit transaction
+    err = tx.Commit()
+    if err != nil {
+        return err
+    }
+    
+    return nil
+}
+
+func main() {
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+    
+    err = transferFunds(db, 1, 2, 100.00)
+    if err != nil {
+        fmt.Println("Transfer failed:", err)
+    } else {
+        fmt.Println("Transfer successful!")
+    }
+}
+</code></pre>
+
+    <h2>8. Complete REST API with Database</h2>
+
+    <pre><code>package main
+
+import (
+    "database/sql"
+    "encoding/json"
+    "net/http"
+    "strconv"
+    
+    "github.com/go-chi/chi/v5"
+    _ "github.com/lib/pq"
+)
+
+type User struct {
+    ID    int    `json:"id"`
+    Name  string `json:"name"`
+    Email string `json:"email"`
+    Age   int    `json:"age"`
+}
+
+type App struct {
+    DB *sql.DB
+}
+
+func (app *App) listUsersHandler(w http.ResponseWriter, r *http.Request) {
+    query := `SELECT id, name, email, age FROM users ORDER BY id`
+    
+    rows, err := app.DB.Query(query)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+    
+    var users []User
+    for rows.Next() {
+        var user User
+        if err := rows.Scan(&user.ID, &user.Name, &user.Email, &user.Age); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        users = append(users, user)
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(users)
+}
+
+func (app *App) getUserHandler(w http.ResponseWriter, r *http.Request) {
+    id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+    
+    query := `SELECT id, name, email, age FROM users WHERE id = $1`
+    var user User
+    
+    err := app.DB.QueryRow(query, id).Scan(&user.ID, &user.Name, &user.Email, &user.Age)
+    if err == sql.ErrNoRows {
+        http.Error(w, "User not found", http.StatusNotFound)
+        return
+    }
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(user)
+}
+
+func (app *App) createUserHandler(w http.ResponseWriter, r *http.Request) {
+    var input struct {
+        Name  string `json:"name"`
+        Email string `json:"email"`
+        Age   int    `json:"age"`
+    }
+    
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid JSON", http.StatusBadRequest)
+        return
+    }
+    
+    query := `INSERT INTO users (name, email, age) VALUES ($1, $2, $3) RETURNING id`
+    var id int
+    
+    err := app.DB.QueryRow(query, input.Name, input.Email, input.Age).Scan(&id)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    user := User{
+        ID:    id,
+        Name:  input.Name,
+        Email: input.Email,
+        Age:   input.Age,
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusCreated)
+    json.NewEncoder(w).Encode(user)
+}
+
+func (app *App) updateUserHandler(w http.ResponseWriter, r *http.Request) {
+    id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+    
+    var input struct {
+        Name  string `json:"name"`
+        Email string `json:"email"`
+        Age   int    `json:"age"`
+    }
+    
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Invalid JSON", http.StatusBadRequest)
+        return
+    }
+    
+    query := `UPDATE users SET name = $1, email = $2, age = $3 WHERE id = $4`
+    result, err := app.DB.Exec(query, input.Name, input.Email, input.Age, id)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    rows, _ := result.RowsAffected()
+    if rows == 0 {
+        http.Error(w, "User not found", http.StatusNotFound)
+        return
+    }
+    
+    user := User{ID: id, Name: input.Name, Email: input.Email, Age: input.Age}
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(user)
+}
+
+func (app *App) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
+    id, _ := strconv.Atoi(chi.URLParam(r, "id"))
+    
+    result, err := app.DB.Exec(`DELETE FROM users WHERE id = $1`, id)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    rows, _ := result.RowsAffected()
+    if rows == 0 {
+        http.Error(w, "User not found", http.StatusNotFound)
+        return
+    }
+    
+    w.WriteHeader(http.StatusNoContent)
+}
+
+func main() {
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+    
+    app := &App{DB: db}
+    
+    r := chi.NewRouter()
+    r.Get("/api/users", app.listUsersHandler)
+    r.Get("/api/users/{id}", app.getUserHandler)
+    r.Post("/api/users", app.createUserHandler)
+    r.Put("/api/users/{id}", app.updateUserHandler)
+    r.Delete("/api/users/{id}", app.deleteUserHandler)
+    
+    println("Server running on :8080")
+    http.ListenAndServe(":8080", r)
+}
+</code></pre>
+
+    <div class="project">
+        <h2>Weekend Mini-Project: Blog API with PostgreSQL</h2>
+        
+        <p><strong>Build a blog API with posts and comments:</strong></p>
+        
+        <p><strong>Tables:</strong></p>
+        <pre><code>CREATE TABLE posts (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    author VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE comments (
+    id SERIAL PRIMARY KEY,
+    post_id INT NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    author VARCHAR(100) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+</code></pre>
+
+        <p><strong>Endpoints to implement:</strong></p>
+        <ul>
+            <li>GET /api/posts - List all posts (with pagination)</li>
+            <li>GET /api/posts/{id} - Get post with comments</li>
+            <li>POST /api/posts - Create post</li>
+            <li>PUT /api/posts/{id} - Update post</li>
+            <li>DELETE /api/posts/{id} - Delete post (cascade comments)</li>
+            <li>POST /api/posts/{id}/comments - Add comment to post</li>
+            <li>GET /api/posts/{id}/comments - Get comments for post</li>
+        </ul>
+
+        <p><strong>Requirements:</strong></p>
+        <ul>
+            <li>Use transactions where appropriate</li>
+            <li>Handle foreign key relationships</li>
+            <li>Add pagination (limit/offset)</li>
+            <li>Proper error handling</li>
+        </ul>
+    </div>
+
+    <h2>Key Takeaways</h2>
+    <ul>
+        <li><code>database/sql</code> is a connection pool - don't close it frequently</li>
+        <li>Use <code>$1, $2</code> for parameterized queries (SQL injection protection)</li>
+        <li><code>QueryRow()</code> for one result, <code>Query()</code> for multiple</li>
+        <li>Always <code>defer rows.Close()</code> and check <code>rows.Err()</code></li>
+        <li>Use transactions for multi-step operations</li>
+        <li><code>defer tx.Rollback()</code> is safe even after <code>tx.Commit()</code></li>
+    </ul>
+
+    <div class="note">
+        <strong>Next Week:</strong> Context, error wrapping, and structured logging!
+    </div>
+</body>
+</html>

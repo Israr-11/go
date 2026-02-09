@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 11: Advanced Patterns & Best Practices</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+        h1 { color: #58a6ff; border-bottom: 2px solid #58a6ff; padding-bottom: 10px; }
+        h2 { color: #79c0ff; margin-top: 30px; }
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; }
+        code { font-family: 'Courier New', monospace; color: #79c0ff; }
+        .note { background: #1c2128; border-left: 4px solid #d29922; padding: 15px; margin: 15px 0; }
+        .project { background: #1c2128; border-left: 4px solid #3fb950; padding: 15px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <h1>Week 11: Advanced Patterns & Best Practices</h1>
+    
+    <p><strong>Goal:</strong> Master Go idioms, design patterns, and best practices used in production codebases.</p>
+
+    <h2>1. Dependency Injection Pattern</h2>
+
+    <pre><code>package main
+
+// Define interfaces for dependencies
+type UserRepository interface {
+    GetByID(id int) (*User, error)
+    Create(user *User) error
+}
+
+type EmailService interface {
+    Send(to, subject, body string) error
+}
+
+// Service depends on interfaces, not concrete types
+type UserService struct {
+    repo  UserRepository
+    email EmailService
+}
+
+// Constructor injection
+func NewUserService(repo UserRepository, email EmailService) *UserService {
+    return &UserService{
+        repo:  repo,
+        email: email,
+    }
+}
+
+func (s *UserService) RegisterUser(user *User) error {
+    // Validate user
+    if user.Email == "" {
+        return errors.New("email required")
+    }
+    
+    // Save to database
+    if err := s.repo.Create(user); err != nil {
+        return fmt.Errorf("create user: %w", err)
+    }
+    
+    // Send welcome email
+    if err := s.email.Send(user.Email, "Welcome!", "Thanks for signing up"); err != nil {
+        // Log error but don't fail registration
+        log.Printf("Failed to send welcome email: %v", err)
+    }
+    
+    return nil
+}
+
+// Concrete implementations
+type PostgresUserRepository struct {
+    db *sql.DB
+}
+
+func (r *PostgresUserRepository) GetByID(id int) (*User, error) {
+    // Implementation
+}
+
+func (r *PostgresUserRepository) Create(user *User) error {
+    // Implementation
+}
+
+type SMTPEmailService struct {
+    host string
+    port int
+}
+
+func (e *SMTPEmailService) Send(to, subject, body string) error {
+    // Implementation
+}
+
+// Wire everything together in main
+func main() {
+    db, _ := sql.Open("postgres", connStr)
+    
+    userRepo := &PostgresUserRepository{db: db}
+    emailService := &SMTPEmailService{host: "smtp.gmail.com", port: 587}
+    
+    userService := NewUserService(userRepo, emailService)
+    
+    // Easy to test with mocks
+    // Easy to swap implementations
+}
+</code></pre>
+
+    <h2>2. Functional Options Pattern</h2>
+
+    <pre><code>package server
+
+import (
+    "net/http"
+    "time"
+)
+
+// Server with many optional configurations
+type Server struct {
+    host         string
+    port         int
+    timeout      time.Duration
+    maxConns     int
+    enableTLS    bool
+    certFile     string
+    keyFile      string
+}
+
+// Option is a function that configures Server
+type Option func(*Server)
+
+// Create options
+func WithTimeout(d time.Duration) Option {
+    return func(s *Server) {
+        s.timeout = d
+    }
+}
+
+func WithMaxConnections(n int) Option {
+    return func(s *Server) {
+        s.maxConns = n
+    }
+}
+
+func WithTLS(certFile, keyFile string) Option {
+    return func(s *Server) {
+        s.enableTLS = true
+        s.certFile = certFile
+        s.keyFile = keyFile
+    }
+}
+
+// Constructor with options
+func NewServer(host string, port int, opts ...Option) *Server {
+    // Defaults
+    s := &Server{
+        host:     host,
+        port:     port,
+        timeout:  30 * time.Second,
+        maxConns: 100,
+    }
+    
+    // Apply options
+    for _, opt := range opts {
+        opt(s)
+    }
+    
+    return s
+}
+
+// Usage - clean and flexible
+func main() {
+    // Minimal configuration
+    server1 := NewServer("localhost", 8080)
+    
+    // With options
+    server2 := NewServer("localhost", 8080,
+        WithTimeout(60*time.Second),
+        WithMaxConnections(200),
+        WithTLS("cert.pem", "key.pem"),
+    )
+}
+</code></pre>
+
+    <h2>3. Worker Pool Pattern</h2>
+
+    <pre><code>package main
+
+import (
+    "context"
+    "fmt"
+    "sync"
+)
+
+type Job struct {
+    ID   int
+    Data string
+}
+
+type Result struct {
+    JobID int
+    Value string
+    Error error
+}
+
+type WorkerPool struct {
+    workers int
+    jobs    chan Job
+    results chan Result
+    wg      sync.WaitGroup
+}
+
+func NewWorkerPool(workers int) *WorkerPool {
+    return &WorkerPool{
+        workers: workers,
+        jobs:    make(chan Job, 100),
+        results: make(chan Result, 100),
+    }
+}
+
+func (wp *WorkerPool) Start(ctx context.Context) {
+    for i := 0; i < wp.workers; i++ {
+        wp.wg.Add(1)
+        go wp.worker(ctx, i)
+    }
+}
+
+func (wp *WorkerPool) worker(ctx context.Context, id int) {
+    defer wp.wg.Done()
+    
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case job, ok := <-wp.jobs:
+            if !ok {
+                return
+            }
+            
+            // Process job
+            result := wp.processJob(job)
+            
+            select {
+            case wp.results <- result:
+            case <-ctx.Done():
+                return
+            }
+        }
+    }
+}
+
+func (wp *WorkerPool) processJob(job Job) Result {
+    // Simulate work
+    value := fmt.Sprintf("Processed: %s", job.Data)
+    return Result{
+        JobID: job.ID,
+        Value: value,
+    }
+}
+
+func (wp *WorkerPool) Submit(job Job) {
+    wp.jobs <- job
+}
+
+func (wp *WorkerPool) Results() <-chan Result {
+    return wp.results
+}
+
+func (wp *WorkerPool) Close() {
+    close(wp.jobs)
+    wp.wg.Wait()
+    close(wp.results)
+}
+
+// Usage
+func main() {
+    ctx := context.Background()
+    pool := NewWorkerPool(5) // 5 workers
+    
+    pool.Start(ctx)
+    
+    // Submit jobs
+    go func() {
+        for i := 0; i < 100; i++ {
+            pool.Submit(Job{ID: i, Data: fmt.Sprintf("Task %d", i)})
+        }
+    }()
+    
+    // Collect results
+    go func() {
+        for result := range pool.Results() {
+            fmt.Printf("Result %d: %s\n", result.JobID, result.Value)
+        }
+    }()
+    
+    pool.Close()
+}
+</code></pre>
+
+    <h2>4. Circuit Breaker Pattern</h2>
+
+    <pre><code>package circuit
+
+import (
+    "errors"
+    "sync"
+    "time"
+)
+
+type State int
+
+const (
+    StateClosed State = iota  // Normal operation
+    StateOpen                  // Failing, reject requests
+    StateHalfOpen             // Testing if service recovered
+)
+
+type CircuitBreaker struct {
+    maxFailures  int
+    timeout      time.Duration
+    
+    state        State
+    failures     int
+    lastFailTime time.Time
+    mu           sync.RWMutex
+}
+
+func NewCircuitBreaker(maxFailures int, timeout time.Duration) *CircuitBreaker {
+    return &CircuitBreaker{
+        maxFailures: maxFailures,
+        timeout:     timeout,
+        state:       StateClosed,
+    }
+}
+
+func (cb *CircuitBreaker) Call(fn func() error) error {
+    cb.mu.Lock()
+    
+    // Check if we should transition from Open to HalfOpen
+    if cb.state == StateOpen {
+        if time.Since(cb.lastFailTime) > cb.timeout {
+            cb.state = StateHalfOpen
+            cb.failures = 0
+        } else {
+            cb.mu.Unlock()
+            return errors.New("circuit breaker is open")
+        }
+    }
+    
+    cb.mu.Unlock()
+    
+    // Execute function
+    err := fn()
+    
+    cb.mu.Lock()
+    defer cb.mu.Unlock()
+    
+    if err != nil {
+        cb.failures++
+        cb.lastFailTime = time.Now()
+        
+        if cb.failures >= cb.maxFailures {
+            cb.state = StateOpen
+        }
+        return err
+    }
+    
+    // Success - close circuit
+    if cb.state == StateHalfOpen {
+        cb.state = StateClosed
+    }
+    cb.failures = 0
+    
+    return nil
+}
+
+// Usage with external API
+type APIClient struct {
+    cb *CircuitBreaker
+}
+
+func NewAPIClient() *APIClient {
+    return &APIClient{
+        cb: NewCircuitBreaker(5, 30*time.Second),
+    }
+}
+
+func (c *APIClient) FetchUser(id int) (*User, error) {
+    var user *User
+    
+    err := c.cb.Call(func() error {
+        // Make HTTP request
+        resp, err := http.Get(fmt.Sprintf("https://api.example.com/users/%d", id))
+        if err != nil {
+            return err
+        }
+        defer resp.Body.Close()
+        
+        if resp.StatusCode != 200 {
+            return fmt.Errorf("API returned status %d", resp.StatusCode)
+        }
+        
+        return json.NewDecoder(resp.Body).Decode(&user)
+    })
+    
+    return user, err
+}
+</code></pre>
+
+    <h2>5. Repository Pattern with Transactions</h2>
+
+    <pre><code>package repository
+
+import (
+    "context"
+    "database/sql"
+)
+
+// Unit of Work pattern
+type UnitOfWork struct {
+    db *sql.DB
+    tx *sql.Tx
+}
+
+func NewUnitOfWork(db *sql.DB) *UnitOfWork {
+    return &UnitOfWork{db: db}
+}
+
+func (uow *UnitOfWork) Begin(ctx context.Context) error {
+    tx, err := uow.db.BeginTx(ctx, nil)
+    if err != nil {
+        return err
+    }
+    uow.tx = tx
+    return nil
+}
+
+func (uow *UnitOfWork) Commit() error {
+    if uow.tx == nil {
+        return errors.New("no active transaction")
+    }
+    return uow.tx.Commit()
+}
+
+func (uow *UnitOfWork) Rollback() error {
+    if uow.tx == nil {
+        return nil
+    }
+    return uow.tx.Rollback()
+}
+
+// Get database connection (tx or db)
+func (uow *UnitOfWork) DB() interface {
+    ExecContext(context.Context, string, ...interface{}) (sql.Result, error)
+    QueryRowContext(context.Context, string, ...interface{}) *sql.Row
+} {
+    if uow.tx != nil {
+        return uow.tx
+    }
+    return uow.db
+}
+
+// Usage in service
+type TransferService struct {
+    uow *UnitOfWork
+}
+
+func (s *TransferService) TransferMoney(ctx context.Context, fromID, toID int, amount float64) error {
+    // Start transaction
+    if err := s.uow.Begin(ctx); err != nil {
+        return err
+    }
+    defer s.uow.Rollback() // Rollback if not committed
+    
+    db := s.uow.DB()
+    
+    // Deduct from source account
+    _, err := db.ExecContext(ctx,
+        "UPDATE accounts SET balance = balance - $1 WHERE id = $2",
+        amount, fromID)
+    if err != nil {
+        return err
+    }
+    
+    // Add to destination account
+    _, err = db.ExecContext(ctx,
+        "UPDATE accounts SET balance = balance + $1 WHERE id = $2",
+        amount, toID)
+    if err != nil {
+        return err
+    }
+    
+    // Commit transaction
+    return s.uow.Commit()
+}
+</code></pre>
+
+    <h2>6. Error Handling Best Practices</h2>
+
+    <pre><code>package errors
+
+import (
+    "errors"
+    "fmt"
+)
+
+// Sentinel errors for comparison
+var (
+    ErrNotFound      = errors.New("resource not found")
+    ErrUnauthorized  = errors.New("unauthorized")
+    ErrInvalidInput  = errors.New("invalid input")
+)
+
+// Custom error types with context
+type ValidationError struct {
+    Field   string
+    Message string
+}
+
+func (e *ValidationError) Error() string {
+    return fmt.Sprintf("validation error: %s - %s", e.Field, e.Message)
+}
+
+// Usage
+func GetUser(id int) (*User, error) {
+    user, err := db.Query(...)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return nil, ErrNotFound  // Sentinel error
+        }
+        return nil, fmt.Errorf("query user: %w", err)  // Wrapped error
+    }
+    return user, nil
+}
+
+// Handler
+func getUserHandler(w http.ResponseWriter, r *http.Request) {
+    user, err := GetUser(123)
+    if err != nil {
+        // Check error type
+        if errors.Is(err, ErrNotFound) {
+            http.Error(w, "User not found", 404)
+            return
+        }
+        
+        // Check custom error
+        var valErr *ValidationError
+        if errors.As(err, &valErr) {
+            http.Error(w, valErr.Error(), 400)
+            return
+        }
+        
+        // Unknown error
+        log.Printf("Error: %v", err)
+        http.Error(w, "Internal error", 500)
+    }
+}
+</code></pre>
+
+    <h2>7. Interface Segregation</h2>
+
+    <pre><code>package storage
+
+// Bad: Large interface
+type Storage interface {
+    Read(key string) ([]byte, error)
+    Write(key string, data []byte) error
+    Delete(key string) error
+    List() ([]string, error)
+    Copy(src, dst string) error
+    Move(src, dst string) error
+}
+
+// Good: Small, focused interfaces
+type Reader interface {
+    Read(key string) ([]byte, error)
+}
+
+type Writer interface {
+    Write(key string, data []byte) error
+}
+
+type Deleter interface {
+    Delete(key string) error
+}
+
+// Compose as needed
+type ReadWriter interface {
+    Reader
+    Writer
+}
+
+// Services only depend on what they need
+type CacheService struct {
+    storage Reader  // Only needs read access
+}
+
+type LogService struct {
+    storage Writer  // Only needs write access
+}
+</code></pre>
+
+    <h2>8. Table-Driven Tests for Production Code</h2>
+
+    <pre><code>package validation
+
+import "testing"
+
+func TestValidateEmail(t *testing.T) {
+    tests := []struct {
+        name    string
+        email   string
+        wantErr bool
+    }{
+        {"valid email", "user@example.com", false},
+        {"missing @", "userexample.com", true},
+        {"missing domain", "user@", true},
+        {"empty", "", true},
+        {"with subdomain", "user@mail.example.com", false},
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := ValidateEmail(tt.email)
+            if (err != nil) != tt.wantErr {
+                t.Errorf("ValidateEmail() error = %v, wantErr %v", err, tt.wantErr)
+            }
+        })
+    }
+}
+</code></pre>
+
+    <h2>9. Go Idioms from Standard Library</h2>
+
+    <pre><code>// 1. Accept interfaces, return structs
+func ProcessData(r io.Reader) (*Result, error) {
+    // Accept interface for flexibility
+}
+
+// 2. Make the zero value useful
+type Buffer struct {
+    data []byte
+}
+// var b Buffer works without initialization
+
+// 3. Use defer for cleanup
+func ReadFile(path string) error {
+    f, err := os.Open(path)
+    if err != nil {
+        return err
+    }
+    defer f.Close()  // Always runs
+    
+    // Use file...
+    return nil
+}
+
+// 4. goroutine etiquette - always know when they exit
+func startWorkers(n int) {
+    var wg sync.WaitGroup
+    for i := 0; i < n; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            // Work...
+        }()
+    }
+    wg.Wait()  // Wait for all to finish
+}
+
+// 5. Use context for cancellation
+func processRequest(ctx context.Context) error {
+    select {
+    case <-ctx.Done():
+        return ctx.Err()
+    case result := <-doWork():
+        return nil
+    }
+}
+</code></pre>
+
+    <div class="project">
+        <h2>Weekend Project: Apply Advanced Patterns</h2>
+        
+        <p><strong>Refactor your API with:</strong></p>
+        <ul>
+            <li>Dependency injection for all services</li>
+            <li>Functional options for server configuration</li>
+            <li>Worker pool for background jobs</li>
+            <li>Circuit breaker for external API calls</li>
+            <li>Unit of Work pattern for transactions</li>
+            <li>Proper error handling (sentinel errors, wrapping)</li>
+            <li>Interface segregation</li>
+            <li>Comprehensive table-driven tests</li>
+        </ul>
+    </div>
+
+    <h2>Go Best Practices Checklist</h2>
+    <ul>
+        <li>✅ Use gofmt/goimports (auto-format code)</li>
+        <li>✅ Run go vet (catch common mistakes)</li>
+        <li>✅ Use golangci-lint (comprehensive linting)</li>
+        <li>✅ Keep functions small and focused</li>
+        <li>✅ Accept interfaces, return concrete types</li>
+        <li>✅ Handle all errors explicitly</li>
+        <li>✅ Use context for cancellation</li>
+        <li>✅ Avoid goroutine leaks (always know when they stop)</li>
+        <li>✅ Use defer for cleanup</li>
+        <li>✅ Prefer composition over inheritance</li>
+        <li>✅ Make zero values useful</li>
+        <li>✅ Use table-driven tests</li>
+    </ul>
+
+    <div class="note">
+        <strong>Final Week:</strong> Interview prep and real-world Go patterns!
+    </div>
+</body>
+</html>

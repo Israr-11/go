@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 4: Context, Error Handling & Logging</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+        h1 { color: #58a6ff; border-bottom: 2px solid #58a6ff; padding-bottom: 10px; }
+        h2 { color: #79c0ff; margin-top: 30px; }
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; }
+        code { font-family: 'Courier New', monospace; color: #79c0ff; }
+        .mapping { background: #1c2128; border-left: 4px solid #f0883e; padding: 15px; margin: 15px 0; }
+        .project { background: #1c2128; border-left: 4px solid #3fb950; padding: 15px; margin: 15px 0; }
+        .note { background: #1c2128; border-left: 4px solid #d29922; padding: 15px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <h1>Week 4: Context, Error Handling & Logging</h1>
+    
+    <p><strong>Goal:</strong> Master Go's context package, error wrapping, and structured logging for production systems.</p>
+
+    <h2>1. Understanding Context</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> No direct equivalent (asyncio context vars are similar)<br>
+        <strong>Go:</strong> <code>context.Context</code> for cancellation, timeouts, request-scoped data
+    </div>
+
+    <p>Context is used for:</p>
+    <ul>
+        <li>Cancellation signals (stop long-running operations)</li>
+        <li>Timeouts and deadlines</li>
+        <li>Request-scoped values (request ID, user info)</li>
+    </ul>
+
+    <h2>2. Context Timeouts</h2>
+
+    <pre><code>package main
+
+import (
+    "context"
+    "fmt"
+    "time"
+)
+
+func slowOperation(ctx context.Context) error {
+    // Simulate work
+    select {
+    case <-time.After(5 * time.Second):
+        return nil
+    case <-ctx.Done():
+        // Context was cancelled or timed out
+        return ctx.Err()
+    }
+}
+
+func main() {
+    // Create context with 2-second timeout
+    ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+    defer cancel()  // Always call cancel to release resources
+    
+    err := slowOperation(ctx)
+    if err != nil {
+        fmt.Println("Error:", err)  // Will print "context deadline exceeded"
+    } else {
+        fmt.Println("Success!")
+    }
+}
+</code></pre>
+
+    <h2>3. Context in HTTP Handlers</h2>
+
+    <pre><code>package main
+
+import (
+    "context"
+    "fmt"
+    "net/http"
+    "time"
+)
+
+func queryDatabase(ctx context.Context, query string) (string, error) {
+    // Simulate DB query
+    select {
+    case <-time.After(3 * time.Second):
+        return "result", nil
+    case <-ctx.Done():
+        return "", ctx.Err()
+    }
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+    // Create context with timeout
+    ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+    defer cancel()
+    
+    result, err := queryDatabase(ctx, "SELECT ...")
+    if err != nil {
+        if err == context.DeadlineExceeded {
+            http.Error(w, "Request timeout", http.StatusGatewayTimeout)
+            return
+        }
+        http.Error(w, "Database error", http.StatusInternalServerError)
+        return
+    }
+    
+    fmt.Fprintf(w, "Result: %s", result)
+}
+
+func main() {
+    http.HandleFunc("/api/data", handler)
+    http.ListenAndServe(":8080", nil)
+}
+</code></pre>
+
+    <h2>4. Context with Database Queries</h2>
+
+    <pre><code>package main
+
+import (
+    "context"
+    "database/sql"
+    "fmt"
+    "time"
+    
+    _ "github.com/lib/pq"
+)
+
+type User struct {
+    ID    int
+    Name  string
+    Email string
+}
+
+func getUserWithContext(ctx context.Context, db *sql.DB, id int) (*User, error) {
+    query := `SELECT id, name, email FROM users WHERE id = $1`
+    
+    var user User
+    // Use QueryRowContext instead of QueryRow
+    err := db.QueryRowContext(ctx, query, id).Scan(&user.ID, &user.Name, &user.Email)
+    if err == sql.ErrNoRows {
+        return nil, nil
+    }
+    if err != nil {
+        return nil, err
+    }
+    
+    return &user, nil
+}
+
+func main() {
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        panic(err)
+    }
+    defer db.Close()
+    
+    // Create context with timeout
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    
+    user, err := getUserWithContext(ctx, db, 1)
+    if err != nil {
+        fmt.Println("Error:", err)
+        return
+    }
+    
+    if user != nil {
+        fmt.Printf("User: %+v\n", user)
+    }
+}
+</code></pre>
+
+    <h2>5. Custom Error Types</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>class CustomError(Exception):</code><br>
+        <strong>Go:</strong> Custom type implementing <code>error</code> interface
+    </div>
+
+    <pre><code>package main
+
+import (
+    "fmt"
+)
+
+// Custom error type
+type NotFoundError struct {
+    Resource string
+    ID       int
+}
+
+func (e *NotFoundError) Error() string {
+    return fmt.Sprintf("%s with ID %d not found", e.Resource, e.ID)
+}
+
+type ValidationError struct {
+    Field   string
+    Message string
+}
+
+func (e *ValidationError) Error() string {
+    return fmt.Sprintf("validation error on field '%s': %s", e.Field, e.Message)
+}
+
+func getUser(id int) error {
+    if id < 0 {
+        return &ValidationError{
+            Field:   "id",
+            Message: "must be positive",
+        }
+    }
+    
+    // Simulate not found
+    return &NotFoundError{
+        Resource: "User",
+        ID:       id,
+    }
+}
+
+func main() {
+    err := getUser(-1)
+    if err != nil {
+        // Type assertion to check error type
+        if valErr, ok := err.(*ValidationError); ok {
+            fmt.Printf("Validation failed: %s\n", valErr.Message)
+        } else if notFoundErr, ok := err.(*NotFoundError); ok {
+            fmt.Printf("Resource not found: %s\n", notFoundErr.Resource)
+        } else {
+            fmt.Println("Unknown error:", err)
+        }
+    }
+}
+</code></pre>
+
+    <h2>6. Error Wrapping</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> Exception chaining (<code>raise ... from e</code>)<br>
+        <strong>Go:</strong> <code>fmt.Errorf("context: %w", err)</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "errors"
+    "fmt"
+)
+
+var ErrDatabase = errors.New("database error")
+var ErrNotFound = errors.New("not found")
+
+func queryDB(id int) error {
+    // Simulate error
+    return ErrDatabase
+}
+
+func getUser(id int) error {
+    err := queryDB(id)
+    if err != nil {
+        // Wrap error with context
+        return fmt.Errorf("failed to get user %d: %w", id, err)
+    }
+    return nil
+}
+
+func main() {
+    err := getUser(123)
+    if err != nil {
+        fmt.Println("Error:", err)
+        // Output: Error: failed to get user 123: database error
+        
+        // Check if error is (or wraps) ErrDatabase
+        if errors.Is(err, ErrDatabase) {
+            fmt.Println("Database error detected!")
+        }
+    }
+}
+</code></pre>
+
+    <h2>7. Structured Logging with slog</h2>
+
+    <div class="mapping">
+        <strong>Python:</strong> <code>logging.info("message", extra={...})</code><br>
+        <strong>Go (slog):</strong> <code>slog.Info("message", "key", value)</code>
+    </div>
+
+    <pre><code>package main
+
+import (
+    "log/slog"
+    "os"
+)
+
+func main() {
+    // Create JSON logger
+    logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+    
+    // Simple log
+    logger.Info("Server started", "port", 8080)
+    
+    // Log with multiple fields
+    logger.Info("User created",
+        "user_id", 123,
+        "email", "alice@example.com",
+        "action", "signup",
+    )
+    
+    // Log error
+    err := errors.New("database connection failed")
+    logger.Error("Database error",
+        "error", err,
+        "retry_count", 3,
+    )
+    
+    // Log with different levels
+    logger.Debug("Debug message")
+    logger.Warn("Warning message")
+}
+</code></pre>
+
+    <p><strong>Output (JSON format):</strong></p>
+    <pre><code>{"time":"2026-02-09T10:00:00Z","level":"INFO","msg":"Server started","port":8080}
+{"time":"2026-02-09T10:00:01Z","level":"INFO","msg":"User created","user_id":123,"email":"alice@example.com","action":"signup"}
+</code></pre>
+
+    <h2>8. Request Logging Middleware</h2>
+
+    <pre><code>package main
+
+import (
+    "log/slog"
+    "net/http"
+    "os"
+    "time"
+)
+
+type responseWriter struct {
+    http.ResponseWriter
+    statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+    rw.statusCode = code
+    rw.ResponseWriter.WriteHeader(code)
+}
+
+func loggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            start := time.Now()
+            
+            // Wrap response writer to capture status code
+            wrapped := &responseWriter{
+                ResponseWriter: w,
+                statusCode:     http.StatusOK,
+            }
+            
+            // Call next handler
+            next.ServeHTTP(wrapped, r)
+            
+            // Log request
+            duration := time.Since(start)
+            logger.Info("HTTP request",
+                "method", r.Method,
+                "path", r.URL.Path,
+                "status", wrapped.statusCode,
+                "duration_ms", duration.Milliseconds(),
+                "remote_addr", r.RemoteAddr,
+            )
+        })
+    }
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+    w.Write([]byte("Hello, World!"))
+}
+
+func main() {
+    logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+    
+    mux := http.NewServeMux()
+    mux.HandleFunc("/api/hello", handler)
+    
+    // Wrap with logging middleware
+    loggedMux := loggingMiddleware(logger)(mux)
+    
+    http.ListenAndServe(":8080", loggedMux)
+}
+</code></pre>
+
+    <h2>9. Complete Example: API with Context, Errors, and Logging</h2>
+
+    <pre><code>package main
+
+import (
+    "context"
+    "database/sql"
+    "encoding/json"
+    "errors"
+    "fmt"
+    "log/slog"
+    "net/http"
+    "os"
+    "strconv"
+    "time"
+    
+    "github.com/go-chi/chi/v5"
+    _ "github.com/lib/pq"
+)
+
+// Custom errors
+var (
+    ErrNotFound   = errors.New("resource not found")
+    ErrValidation = errors.New("validation error")
+)
+
+type ValidationError struct {
+    Field   string
+    Message string
+}
+
+func (e *ValidationError) Error() string {
+    return fmt.Sprintf("%s: %s", e.Field, e.Message)
+}
+
+type User struct {
+    ID    int    `json:"id"`
+    Name  string `json:"name"`
+    Email string `json:"email"`
+}
+
+type App struct {
+    DB     *sql.DB
+    Logger *slog.Logger
+}
+
+func (app *App) getUser(ctx context.Context, id int) (*User, error) {
+    query := `SELECT id, name, email FROM users WHERE id = $1`
+    
+    var user User
+    err := app.DB.QueryRowContext(ctx, query, id).Scan(&user.ID, &user.Name, &user.Email)
+    
+    if err == sql.ErrNoRows {
+        return nil, fmt.Errorf("user %d: %w", id, ErrNotFound)
+    }
+    if err != nil {
+        return nil, fmt.Errorf("query user %d: %w", id, err)
+    }
+    
+    return &user, nil
+}
+
+func (app *App) getUserHandler(w http.ResponseWriter, r *http.Request) {
+    // Create context with timeout
+    ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+    defer cancel()
+    
+    id, err := strconv.Atoi(chi.URLParam(r, "id"))
+    if err != nil {
+        app.Logger.Warn("Invalid user ID", "id", chi.URLParam(r, "id"))
+        http.Error(w, "Invalid user ID", http.StatusBadRequest)
+        return
+    }
+    
+    user, err := app.getUser(ctx, id)
+    if err != nil {
+        if errors.Is(err, ErrNotFound) {
+            app.Logger.Info("User not found", "user_id", id)
+            http.Error(w, "User not found", http.StatusNotFound)
+            return
+        }
+        
+        app.Logger.Error("Failed to get user",
+            "user_id", id,
+            "error", err,
+        )
+        http.Error(w, "Internal server error", http.StatusInternalServerError)
+        return
+    }
+    
+    app.Logger.Info("User retrieved successfully", "user_id", id)
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(user)
+}
+
+func loggingMiddleware(logger *slog.Logger) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            start := time.Now()
+            
+            wrapped := &responseWriter{ResponseWriter: w, statusCode: 200}
+            next.ServeHTTP(wrapped, r)
+            
+            logger.Info("Request",
+                "method", r.Method,
+                "path", r.URL.Path,
+                "status", wrapped.statusCode,
+                "duration_ms", time.Since(start).Milliseconds(),
+            )
+        })
+    }
+}
+
+type responseWriter struct {
+    http.ResponseWriter
+    statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+    rw.statusCode = code
+    rw.ResponseWriter.WriteHeader(code)
+}
+
+func main() {
+    logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+    
+    connStr := "host=localhost port=5432 user=gouser password=gopass dbname=godb sslmode=disable"
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        logger.Error("Failed to connect to database", "error", err)
+        os.Exit(1)
+    }
+    defer db.Close()
+    
+    app := &App{DB: db, Logger: logger}
+    
+    r := chi.NewRouter()
+    r.Use(loggingMiddleware(logger))
+    r.Get("/api/users/{id}", app.getUserHandler)
+    
+    logger.Info("Server starting", "port", 8080)
+    http.ListenAndServe(":8080", r)
+}
+</code></pre>
+
+    <div class="project">
+        <h2>Weekend Mini-Project: Refactor Previous API</h2>
+        
+        <p><strong>Take your Week 3 blog API and add:</strong></p>
+        <ul>
+            <li>Context timeouts on all database queries (5 seconds)</li>
+            <li>Custom error types (NotFoundError, ValidationError)</li>
+            <li>Error wrapping with <code>fmt.Errorf(...%w...)</code></li>
+            <li>Structured logging with slog (JSON format)</li>
+            <li>Request logging middleware</li>
+            <li>Graceful shutdown (capture SIGTERM/SIGINT)</li>
+        </ul>
+
+        <p><strong>Graceful shutdown example:</strong></p>
+        <pre><code>package main
+
+import (
+    "context"
+    "log/slog"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+)
+
+func main() {
+    logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+    
+    server := &http.Server{
+        Addr:    ":8080",
+        Handler: nil, // your router
+    }
+    
+    // Start server in goroutine
+    go func() {
+        logger.Info("Server starting", "port", 8080)
+        if err := server.ListenAndServe(); err != http.ErrServerClosed {
+            logger.Error("Server error", "error", err)
+        }
+    }()
+    
+    // Wait for interrupt signal
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    <-quit
+    
+    logger.Info("Server shutting down")
+    
+    // Graceful shutdown with timeout
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    
+    if err := server.Shutdown(ctx); err != nil {
+        logger.Error("Shutdown error", "error", err)
+    }
+    
+    logger.Info("Server stopped")
+}
+</code></pre>
+    </div>
+
+    <h2>Key Takeaways</h2>
+    <ul>
+        <li>Always pass <code>context.Context</code> as first parameter</li>
+        <li>Use <code>context.WithTimeout</code> for DB queries and external calls</li>
+        <li>Wrap errors with <code>%w</code> to preserve error chain</li>
+        <li>Use <code>errors.Is()</code> and <code>errors.As()</code> to check wrapped errors</li>
+        <li>Structured logging (slog) is production standard</li>
+        <li>Log in JSON format for log aggregation tools</li>
+    </ul>
+
+    <div class="note">
+        <strong>Next Week:</strong> Middleware patterns and JWT authentication!
+    </div>
+</body>
+</html>

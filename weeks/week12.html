@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 12: Interview Prep & Real-World Go</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 40px auto; padding: 20px; background: #0d1117; color: #c9d1d9; line-height: 1.6; }
+        h1 { color: #58a6ff; border-bottom: 2px solid #58a6ff; padding-bottom: 10px; }
+        h2 { color: #79c0ff; margin-top: 30px; }
+        pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; }
+        code { font-family: 'Courier New', monospace; color: #79c0ff; }
+        .note { background: #1c2128; border-left: 4px solid #d29922; padding: 15px; margin: 15px 0; }
+        .project { background: #1c2128; border-left: 4px solid #3fb950; padding: 15px; margin: 15px 0; }
+        .success { background: #1c2128; border-left: 4px solid #58a6ff; padding: 15px; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <h1>Week 12: Interview Prep & Production Go</h1>
+    
+    <p><strong>Goal:</strong> Master common interview questions and understand how Go is used in production at scale.</p>
+
+    <h2>1. Common Interview Questions</h2>
+
+    <h3>Q: Explain goroutines vs threads</h3>
+    <pre><code>// Goroutines are lightweight (2KB stack)
+// OS threads are heavy (1-2MB stack)
+
+// Can run millions of goroutines
+for i := 0; i < 1000000; i++ {
+    go func() {
+        // Do work
+    }()
+}
+
+// Key differences:
+// - Goroutines: Managed by Go runtime (M:N scheduling)
+// - Threads: Managed by OS (1:1 with kernel threads)
+// - Goroutines: Cheap context switch
+// - Threads: Expensive context switch
+// - Goroutines: Cooperative scheduling
+// - Threads: Preemptive scheduling
+</code></pre>
+
+    <h3>Q: What is a channel? When would you use buffered vs unbuffered?</h3>
+    <pre><code>// Unbuffered: Synchronous send/receive
+ch := make(chan int)
+go func() {
+    ch <- 42  // Blocks until received
+}()
+val := <-ch  // Blocks until sent
+
+// Buffered: Async up to capacity
+ch := make(chan int, 3)
+ch <- 1  // Doesn't block
+ch <- 2  // Doesn't block
+ch <- 3  // Doesn't block
+ch <- 4  // Blocks (buffer full)
+
+// Use unbuffered when:
+// - You need synchronization guarantees
+// - Sender and receiver must meet
+
+// Use buffered when:
+// - Known capacity/burst size
+// - Want to decouple sender/receiver timing
+// - Worker pool queues
+</code></pre>
+
+    <h3>Q: How does garbage collection work in Go?</h3>
+    <pre><code>// Go uses concurrent mark-and-sweep GC
+
+// Control GC behavior
+import "runtime"
+
+func main() {
+    // Set GC percentage (default 100)
+    // Lower = more frequent GC, less memory
+    // Higher = less frequent GC, more memory
+    runtime.SetGCPercent(50)
+    
+    // Manually trigger GC (rare in production)
+    runtime.GC()
+    
+    // Get memory stats
+    var m runtime.MemStats
+    runtime.ReadMemStats(&m)
+    fmt.Printf("Alloc = %v MiB", m.Alloc/1024/1024)
+    fmt.Printf("TotalAlloc = %v MiB", m.TotalAlloc/1024/1024)
+}
+
+// Tips to reduce GC pressure:
+// 1. Reuse objects with sync.Pool
+// 2. Pre-allocate slices
+// 3. Avoid unnecessary pointer usage
+// 4. Use value receivers when possible
+</code></pre>
+
+    <h3>Q: What is the difference between make and new?</h3>
+    <pre><code>// new: Allocates memory, returns pointer to zero value
+p := new(int)  // *int, value is 0
+s := new([]int)  // *[]int, value is nil slice
+
+// make: Initializes slices, maps, channels (returns the type itself)
+s := make([]int, 5, 10)  // slice with len=5, cap=10
+m := make(map[string]int)  // initialized map
+ch := make(chan int)  // channel
+
+// Rule of thumb:
+// - Use make for: slices, maps, channels
+// - Use new for: everything else (rare, use literal instead)
+// - Most common: Use composite literals
+s := []int{1, 2, 3}
+m := map[string]int{"a": 1}
+</code></pre>
+
+    <h3>Q: Explain interface{} and type assertions</h3>
+    <pre><code>// interface{} (or 'any' in Go 1.18+) holds any type
+var i interface{} = "hello"
+i = 42
+i = []int{1, 2, 3}
+
+// Type assertion
+s, ok := i.(string)  // Safe assertion
+if ok {
+    fmt.Println("String:", s)
+}
+
+s := i.(string)  // Panics if not string
+
+// Type switch
+func describe(i interface{}) {
+    switch v := i.(type) {
+    case string:
+        fmt.Printf("String: %s\n", v)
+    case int:
+        fmt.Printf("Int: %d\n", v)
+    case []int:
+        fmt.Printf("Slice: %v\n", v)
+    default:
+        fmt.Printf("Unknown type: %T\n", v)
+    }
+}
+</code></pre>
+
+    <h2>2. Coding Interview Patterns</h2>
+
+    <h3>Pattern 1: Two Pointers</h3>
+    <pre><code>func isPalindrome(s string) bool {
+    left, right := 0, len(s)-1
+    
+    for left < right {
+        if s[left] != s[right] {
+            return false
+        }
+        left++
+        right--
+    }
+    return true
+}
+
+func removeDuplicates(nums []int) int {
+    if len(nums) == 0 {
+        return 0
+    }
+    
+    slow := 0
+    for fast := 1; fast < len(nums); fast++ {
+        if nums[fast] != nums[slow] {
+            slow++
+            nums[slow] = nums[fast]
+        }
+    }
+    return slow + 1
+}
+</code></pre>
+
+    <h3>Pattern 2: Hash Map</h3>
+    <pre><code>func twoSum(nums []int, target int) []int {
+    seen := make(map[int]int)  // value -> index
+    
+    for i, num := range nums {
+        complement := target - num
+        if j, ok := seen[complement]; ok {
+            return []int{j, i}
+        }
+        seen[num] = i
+    }
+    return nil
+}
+
+func groupAnagrams(strs []string) [][]string {
+    groups := make(map[string][]string)
+    
+    for _, s := range strs {
+        // Sort string as key
+        key := sortString(s)
+        groups[key] = append(groups[key], s)
+    }
+    
+    result := make([][]string, 0, len(groups))
+    for _, group := range groups {
+        result = append(result, group)
+    }
+    return result
+}
+
+func sortString(s string) string {
+    runes := []rune(s)
+    sort.Slice(runes, func(i, j int) bool {
+        return runes[i] < runes[j]
+    })
+    return string(runes)
+}
+</code></pre>
+
+    <h3>Pattern 3: Binary Search</h3>
+    <pre><code>func binarySearch(nums []int, target int) int {
+    left, right := 0, len(nums)-1
+    
+    for left <= right {
+        mid := left + (right-left)/2  // Avoid overflow
+        
+        if nums[mid] == target {
+            return mid
+        } else if nums[mid] < target {
+            left = mid + 1
+        } else {
+            right = mid - 1
+        }
+    }
+    return -1
+}
+</code></pre>
+
+    <h3>Pattern 4: Concurrent Processing</h3>
+    <pre><code>func processURLs(urls []string) []Result {
+    results := make([]Result, len(urls))
+    var wg sync.WaitGroup
+    
+    for i, url := range urls {
+        wg.Add(1)
+        go func(idx int, u string) {
+            defer wg.Done()
+            results[idx] = fetchURL(u)
+        }(i, url)
+    }
+    
+    wg.Wait()
+    return results
+}
+
+// With error handling
+func processURLsWithErrors(urls []string) ([]Result, error) {
+    type result struct {
+        idx  int
+        data Result
+        err  error
+    }
+    
+    resultCh := make(chan result, len(urls))
+    
+    for i, url := range urls {
+        go func(idx int, u string) {
+            data, err := fetchURL(u)
+            resultCh <- result{idx: idx, data: data, err: err}
+        }(i, url)
+    }
+    
+    results := make([]Result, len(urls))
+    for i := 0; i < len(urls); i++ {
+        r := <-resultCh
+        if r.err != nil {
+            return nil, r.err
+        }
+        results[r.idx] = r.data
+    }
+    
+    return results, nil
+}
+</code></pre>
+
+    <h2>3. System Design with Go</h2>
+
+    <h3>Rate Limiter Implementation</h3>
+    <pre><code>package ratelimit
+
+import (
+    "sync"
+    "time"
+)
+
+// Token bucket algorithm
+type RateLimiter struct {
+    tokens    float64
+    capacity  float64
+    refillRate float64
+    lastRefill time.Time
+    mu        sync.Mutex
+}
+
+func NewRateLimiter(capacity, refillPerSecond float64) *RateLimiter {
+    return &RateLimiter{
+        tokens:     capacity,
+        capacity:   capacity,
+        refillRate: refillPerSecond,
+        lastRefill: time.Now(),
+    }
+}
+
+func (rl *RateLimiter) Allow() bool {
+    rl.mu.Lock()
+    defer rl.mu.Unlock()
+    
+    // Refill tokens based on time elapsed
+    now := time.Now()
+    elapsed := now.Sub(rl.lastRefill).Seconds()
+    rl.tokens = min(rl.capacity, rl.tokens+elapsed*rl.refillRate)
+    rl.lastRefill = now
+    
+    // Check if we have tokens
+    if rl.tokens >= 1 {
+        rl.tokens--
+        return true
+    }
+    return false
+}
+
+func min(a, b float64) float64 {
+    if a < b {
+        return a
+    }
+    return b
+}
+
+// Middleware
+func RateLimitMiddleware(limiter *RateLimiter) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            if !limiter.Allow() {
+                http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+                return
+            }
+            next.ServeHTTP(w, r)
+        })
+    }
+}
+</code></pre>
+
+    <h3>In-Memory Cache with TTL</h3>
+    <pre><code>package cache
+
+import (
+    "sync"
+    "time"
+)
+
+type item struct {
+    value      interface{}
+    expiration int64
+}
+
+type Cache struct {
+    items map[string]item
+    mu    sync.RWMutex
+}
+
+func NewCache() *Cache {
+    c := &Cache{
+        items: make(map[string]item),
+    }
+    
+    // Start cleanup goroutine
+    go c.cleanup()
+    
+    return c
+}
+
+func (c *Cache) Set(key string, value interface{}, ttl time.Duration) {
+    expiration := time.Now().Add(ttl).UnixNano()
+    
+    c.mu.Lock()
+    c.items[key] = item{
+        value:      value,
+        expiration: expiration,
+    }
+    c.mu.Unlock()
+}
+
+func (c *Cache) Get(key string) (interface{}, bool) {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    
+    item, found := c.items[key]
+    if !found {
+        return nil, false
+    }
+    
+    // Check expiration
+    if time.Now().UnixNano() > item.expiration {
+        return nil, false
+    }
+    
+    return item.value, true
+}
+
+func (c *Cache) cleanup() {
+    ticker := time.NewTicker(5 * time.Minute)
+    defer ticker.Stop()
+    
+    for range ticker.C {
+        c.mu.Lock()
+        now := time.Now().UnixNano()
+        for k, v := range c.items {
+            if now > v.expiration {
+                delete(c.items, k)
+            }
+        }
+        c.mu.Unlock()
+    }
+}
+</code></pre>
+
+    <h2>4. Real-World Go Examples</h2>
+
+    <div class="note">
+        <h3>Companies Using Go in Production</h3>
+        <ul>
+            <li><strong>Google:</strong> Kubernetes, Istio, gRPC</li>
+            <li><strong>Uber:</strong> Microservices, geofencing</li>
+            <li><strong>Netflix:</strong> Rend (memcached proxy)</li>
+            <li><strong>Dropbox:</strong> Storage infrastructure</li>
+            <li><strong>Docker:</strong> Container runtime</li>
+            <li><strong>HashiCorp:</strong> Terraform, Vault, Consul</li>
+            <li><strong>Cloudflare:</strong> Edge computing</li>
+        </ul>
+    </div>
+
+    <h2>5. Go Interview Tips</h2>
+
+    <ul>
+        <li><strong>Know the basics cold:</strong> slices, maps, goroutines, channels</li>
+        <li><strong>Understand concurrency deeply:</strong> race conditions, deadlocks, sync primitives</li>
+        <li><strong>Be familiar with standard library:</strong> net/http, context, database/sql</li>
+        <li><strong>Practice coding problems:</strong> LeetCode, HackerRank (Go section)</li>
+        <li><strong>Know common patterns:</strong> worker pools, fan-in/fan-out, pipeline</li>
+        <li><strong>Understand interfaces:</strong> Duck typing, composition over inheritance</li>
+        <li><strong>Error handling philosophy:</strong> Explicit error returns, wrapping, sentinel errors</li>
+        <li><strong>Testing best practices:</strong> Table-driven tests, benchmarking, examples</li>
+    </ul>
+
+    <h2>6. Portfolio Project Ideas</h2>
+
+    <ol>
+        <li><strong>REST API with PostgreSQL</strong> - Full CRUD, JWT auth, tests</li>
+        <li><strong>URL Shortener</strong> - Redis cache, analytics, rate limiting</li>
+        <li><strong>Chat Server</strong> - WebSockets, goroutines, channels</li>
+        <li><strong>Task Queue</strong> - Worker pool, delayed jobs, retries</li>
+        <li><strong>File Upload Service</strong> - S3 integration, chunked uploads</li>
+        <li><strong>Metrics Collector</strong> - Prometheus integration, time series</li>
+        <li><strong>CLI Tool</strong> - Cobra framework, helpful for DevOps roles</li>
+    </ol>
+
+    <h2>7. Resources for Continued Learning</h2>
+
+    <ul>
+        <li><strong>Books:</strong>
+            <ul>
+                <li>The Go Programming Language (Donovan & Kernighan)</li>
+                <li>Concurrency in Go (Katherine Cox-Buday)</li>
+                <li>Go in Action (William Kennedy)</li>
+            </ul>
+        </li>
+        <li><strong>Websites:</strong>
+            <ul>
+                <li>go.dev - Official docs</li>
+                <li>gobyexample.com - Hands-on examples</li>
+                <li>exercism.org - Practice exercises with mentorship</li>
+            </ul>
+        </li>
+        <li><strong>YouTube Channels:</strong>
+            <ul>
+                <li>GopherCon talks</li>
+                <li>Ardan Labs</li>
+                <li>Golang Dojo</li>
+            </ul>
+        </li>
+        <li><strong>Open Source:</strong> Contribute to Go projects on GitHub</li>
+    </ul>
+
+    <div class="project">
+        <h2>Final Capstone Project</h2>
+        
+        <p><strong>Build a Production-Ready Microservice:</strong></p>
+        
+        <h3>Requirements:</h3>
+        <ul>
+            <li>✅ REST API with Chi router</li>
+            <li>✅ PostgreSQL with migrations</li>
+            <li>✅ JWT authentication</li>
+            <li>✅ Middleware (logging, auth, rate limiting)</li>
+            <li>✅ Graceful shutdown</li>
+            <li>✅ Health/readiness endpoints</li>
+            <li>✅ Structured logging (slog)</li>
+            <li>✅ Comprehensive tests (>80% coverage)</li>
+            <li>✅ Docker and docker-compose</li>
+            <li>✅ CI/CD with GitHub Actions</li>
+            <li>✅ Deployed to cloud (Fly.io/Railway)</li>
+            <li>✅ README with setup instructions</li>
+        </ul>
+
+        <p><strong>Example: Task Management API</strong></p>
+        <ul>
+            <li>Users can register/login</li>
+            <li>Create/read/update/delete tasks</li>
+            <li>Tags and categories</li>
+            <li>Search and filter</li>
+            <li>User dashboard with statistics</li>
+        </ul>
+    </div>
+
+    <h2>8. Interview Simulation Questions</h2>
+
+    <h3>Behavioral Questions:</h3>
+    <ul>
+        <li>"Why did you choose to learn Go?"</li>
+        <li>"Tell me about a challenging bug you debugged"</li>
+        <li>"How do you approach learning new technologies?"</li>
+        <li>"Describe your experience with backend development"</li>
+    </ul>
+
+    <h3>Technical Questions:</h3>
+    <ul>
+        <li>"How would you design a URL shortener in Go?"</li>
+        <li>"Explain how you'd handle 1 million concurrent connections"</li>
+        <li>"What's the difference between sync.Mutex and sync.RWMutex?"</li>
+        <li>"How do you prevent goroutine leaks?"</li>
+        <li>"When would you use a buffered channel?"</li>
+    </ul>
+
+    <h3>Sample Answer: "Design a URL Shortener"</h3>
+    <pre><code>// Data model
+type URL struct {
+    ID        int
+    ShortCode string
+    LongURL   string
+    CreatedAt time.Time
+    Clicks    int
+}
+
+// Architecture:
+// 1. PostgreSQL for persistence
+// 2. Redis for caching hot URLs
+// 3. Short code generation (base62 encoding)
+// 4. Rate limiting per IP
+// 5. Analytics tracking goroutine
+
+// Key endpoints:
+// POST /api/shorten - Create short URL
+// GET /:code - Redirect to long URL
+// GET /api/stats/:code - Get click stats
+
+// Scalability:
+// - Horizontal scaling with load balancer
+// - Redis cluster for distributed cache
+// - Database read replicas
+// - CDN for static content
+</code></pre>
+
+    <div class="success">
+        <h2>🎉 Congratulations!</h2>
+        <p>You've completed the 12-week Go learning roadmap!</p>
+        
+        <h3>What You've Learned:</h3>
+        <ul>
+            <li>✅ Go fundamentals and syntax</li>
+            <li>✅ HTTP servers and REST APIs</li>
+            <li>✅ Database integration (PostgreSQL)</li>
+            <li>✅ Authentication and authorization</li>
+            <li>✅ Concurrency with goroutines and channels</li>
+            <li>✅ Testing and benchmarking</li>
+            <li>✅ Production deployment</li>
+            <li>✅ Performance optimization</li>
+            <li>✅ Advanced design patterns</li>
+            <li>✅ Interview preparation</li>
+        </ul>
+
+        <h3>Next Steps:</h3>
+        <ol>
+            <li>Complete your capstone project</li>
+            <li>Deploy it and add to your portfolio</li>
+            <li>Contribute to open-source Go projects</li>
+            <li>Apply for Go backend positions</li>
+            <li>Keep learning and building!</li>
+        </ol>
+
+        <p><strong>You're now ready for Go backend development roles!</strong></p>
+    </div>
+
+    <h2>Quick Reference Card</h2>
+    <pre><code># Run Go programs
+go run main.go
+
+# Build executable
+go build -o myapp
+
+# Run tests
+go test ./...
+go test -v -cover ./...
+
+# Benchmark
+go test -bench=. -benchmem
+
+# Format code
+gofmt -w .
+goimports -w .
+
+# Lint
+golangci-lint run
+
+# Install dependencies
+go get github.com/user/package
+go mod tidy
+
+# Profile
+go tool pprof cpu.prof
+
+# Build for production
+CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
+</code></pre>
+
+</body>
+</html>

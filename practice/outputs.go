@@ -63,5 +63,12 @@ Output:
 i has value: Hello and type: string
 j has value: 15 and type: int
 
-
+********************************************************************
+****************Common output formatting****************************
+********************************************************************
+%v	Prints the value in the default format
+%#v	Prints the value in Go-syntax format
+%T	Prints the type of the value
+%%	Prints the % sign
+********************************************************************
 */

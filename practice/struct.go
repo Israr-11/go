@@ -1,0 +1,73 @@
+package main
+import ("fmt")
+
+
+type Person struct{
+	age int;
+	name string;
+	job string;
+	salary int;
+}
+
+func main(){
+	var pers1 Person
+	var pers2 Person
+
+
+	pers1.name="Israr"
+	pers1.age=26
+	pers1.job="Software Engineer"
+	pers1.salary = 70000
+
+	pers2.name = "Awan"
+	pers2.age= 26
+	pers2.job= "IT Guy"
+	pers2.salary= 70000
+
+	fmt.Println("Details of Person 1:")
+	fmt.Println("Name:", pers1.name)
+	fmt.Println("Age:", pers1.age)
+	fmt.Println("Job:", pers1.job)
+	fmt.Println("Salary:", pers1.salary)
+    
+	fmt.Println("Details of Person 2:")
+	fmt.Println("Name:", pers2.name)
+	fmt.Println("Age:", pers2.age)
+	fmt.Println("Job:", pers2.job)
+	fmt.Println("Salary:", pers2.salary)
+
+}
+
+
+
+
+
+
+
+
+
+
+/*
+---> struct is the short form for structures is used to create a collection 
+of members of different data types, into a single variable.
+
+---> While arrays are used to store multiple values of the same data type 
+into a single variable, structs are used to store multiple values of 
+different data types into a single variable.
+
+---> A struct can be useful for grouping data together to create records.
+
+Syntax for struct
+
+type struct_name struct {
+  member1 datatype;
+  member2 datatype;
+  member3 datatype;
+  ...
+}
+
+
+
+
+
+*/

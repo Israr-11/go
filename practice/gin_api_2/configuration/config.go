@@ -1,6 +1,7 @@
 // This file loads database credentials from a .env file and creates a 
 // PostgreSQL connection using GORM so the rest of the application can interact 
 // with the database.
+
 package configuration
 
 import (

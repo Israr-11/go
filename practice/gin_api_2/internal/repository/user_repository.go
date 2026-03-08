@@ -38,9 +38,9 @@ This means that the ptr variable will hold the memory address of an integer.
 use the address-of operator (&). For example, ptr = &num assigns the memory 
 address of variable num to the pointer ptr.
 
-3. Dereferencing: To access the value stored at the memory location pointed to by 
-a pointer, we use the dereference operator (*). For example, *ptr retrieves the 
-value stored at the address ptr points to.
+3. Dereferencing: To access the value stored at the memory location pointed to 
+by a pointer, we use the dereference operator (*). For example, *ptr retrieves 
+the value stored at the address ptr points to.
 */
 
 package repository

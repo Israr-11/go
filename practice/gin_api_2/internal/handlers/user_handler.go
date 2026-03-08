@@ -50,6 +50,7 @@ type UserHandler struct {
 
 // Constructor
 // Creates a new UserHandler and attaches the service
+
 func NewUserHandler(service *services.UserService) *UserHandler {
     return &UserHandler{service: service}
 }
@@ -69,6 +70,20 @@ type CreateUserRequest struct {
 }
 
 // CreateUser endpoint
+
+// func (h *UserHandler) CreateUser(...) -> CreateUser is a function that 
+// belongs to UserHandler
+
+// PYTHON
+// class UserHandler:
+
+//     def create_user(self, request):
+//         pass
+
+//GOLANG
+// func (h *UserHandler) CreateUser(c *gin.Context) {
+// }
+
 func (h *UserHandler) CreateUser(c *gin.Context) {
 
     // (h *UserHandler)

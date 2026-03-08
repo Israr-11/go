@@ -53,6 +53,8 @@ import (
 
 // UserRepository handles DB operations.
 // This struct acts like a wrapper around the database connection.
+
+// Just like the class UserRepository
 type UserRepository struct {
     db *gorm.DB // pointer to the database connection object
 }

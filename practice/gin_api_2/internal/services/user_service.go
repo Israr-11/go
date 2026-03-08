@@ -39,6 +39,15 @@ import (
 // UserService contains business logic for users
 type UserService struct {
 
+
+// *Type -> Pointer (reference to object)
+
+// Example:  repo *UserRepository
+
+// Think: store reference to repository
+
+// Like JS object reference.
+
     // repo holds the repository that talks to the database
     // *repository.UserRepository means we store a reference to the repository
     // (in simple terms: we keep the same repo object instead of copying it)
@@ -63,11 +72,17 @@ func (s *UserService) CreateUser(name, email, password string) error {
     // Hash the password before storing in DB
     // utils.HashPassword probably uses bcrypt internally
     hashedPassword, err := utils.HashPassword(password)
+
+	//We check whether the err variable is nil, if nil operation succeeded and
+	// if not then it's mean something went wrong.
+
     if err != nil {
         return err
     }
 
     // Create a new User struct
+
+	// Same as=> var user struct = &models.User
     user := &models.User{
 
         // &models.User means we create the user and return its reference

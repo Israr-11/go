@@ -17,7 +17,7 @@ import (
 // after reading values from environment variables.
 type Config struct {
     DBHost     string // database host, e.g., "localhost"
-    DBPort     string // database port, e.g., "5432"
+    DBPort     string // database port, e.g., "5433"
     DBUser     string // database username
     DBPassword string // database password
     DBName     string // database name
@@ -42,6 +42,7 @@ func LoadConfig() *Config {
         DBPassword: os.Getenv("DB_PASSWORD"),
         DBName:     os.Getenv("DB_NAME"),
     }
+
 }
 
 // ConnectDB connects to PostgreSQL using GORM and returns the *gorm.DB object.
